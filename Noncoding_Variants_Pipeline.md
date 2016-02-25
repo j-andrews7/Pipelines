@@ -41,7 +41,7 @@ This is great when you can allocate enough processors and RAM to handle all the 
 module load samtools-1.2
 module load bcftools-1.2
 
-for file in /scratch/jandrews/Data/ChIP_Seq/K27AC/Batch1/*.bam; do
+for file in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch1/*.bam; do
 
 	samtools mpileup -u -t DP -f /scratch/jandrews/Ref/hg19.fa $file \
 	| bcftools call -cv -O v - \
@@ -56,7 +56,7 @@ module remove bcftools-1.2
 ##### 2.) Add qual value for each sample to the INFO field of its VCF.
 INFO fields can have operations done on them during the merge, whereas for the QUAL score, the max value across samples are taken (while we want the average). So we add a custom info field.
 
-```
+```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
@@ -66,21 +66,21 @@ done
 ```
 
 ##### 3.) Remove garbage chromosomes from VCF.
-```
+```Bash
 for file in *.vcf; do
-	sed -i '/_g\|chrM\|chrY\|chr23|\chrX/d' "$file";
+	sed -i '/_g\|chrM\|chrY/d' "$file";
 done
 ```
 
 ##### 4.) Sort VCFs.
-```
+```Bash
 for f in *.vcf; do
 	vcf-sort "$f" > "$f".sorted ;
 done
 ```
 
 ##### 5.) Zip and index each VCF.
-```
+```Bash
 for f in *.vcf; do
 	bgzip -c "$f" > "$f".gz;
 done
@@ -116,6 +116,7 @@ module remove bcftools-1.2
 
 ##### 8.) Fix header of the resulting merged VCF for each sample.
 Shortens the column headers to (sample_mark). This also fixes other header inconcistencies like case, extra underscores, etc.  
+
 **Python script (shorten_vcf_header.py)**:
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
