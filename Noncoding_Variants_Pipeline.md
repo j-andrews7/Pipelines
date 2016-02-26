@@ -223,8 +223,7 @@ bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b ../SE
 ```
 
 ##### 3.) Intersect the variants with features of interest
-This intersects the funseq annotated variants with the SEs, MMPIDs, and TSS positions created in previous steps.
-This will create a summary file for each sample with counts for each intersection. This filters out variants found near the Ig loci as well, though it does so in a lazy way and just removes all the variants in the region rather than only those that overlap with the Ig genes. Can edit  `/scrach/jandrews/Ref/Ig_Loci.bed` to change these positions.  
+This intersects the funseq annotated variants with the SEs, MMPIDs, and TSS positions created in previous steps. This will create a summary file for each sample with counts for each intersection. This filters out variants found near the Ig loci as well, though it does so in a lazy way and just removes all the variants in the region rather than only those that overlap with the Ig genes. Can edit  `/scrach/jandrews/Ref/Ig_Loci.bed` to change these positions.  
 
 **Bash script (isec_ind_samp_variants_wMMPIDs_SEs_TSS.sh):**
 ```Bash
