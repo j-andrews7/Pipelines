@@ -1,17 +1,22 @@
-CN Analysis - Aim is to detect focal amplifications (or deletions) with GISTIC.
-Up to date as of 02/08/2106
+# CN Analysis 
+The aim of this pipeline is to detect focal amplifications (or deletions) with GISTIC. I don't go in-depth for use of the Affy Genotyping Console, but it's really pretty straightforward. Read the manual within the program if you need more details.  
+
+Up to date as of 02/26/2106.  
 jared.andrews07@gmail.com
 
-###-To determine amplifications/deletions associated with the tumors, use GISTIC.
-Need a segmentation file and markers file to run. Segmentation file needs 6 columns: sample ID, chrom, start, end, # of markers, log2(CN)-1. Markers file needs 3: marker_ID, chrom, position. Be sure to use the CN probes from the SNP6 arrays from Affy. This was actually a huge hassle to figure out, so here's a basic breakdown. If you're running it on new samples at least, otherwise find the markers and segmentation files I made for this previously. 
+##### Preparation
+---
+[GISTIC](http://www.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) requires a segmentation file and markers file to run, but if you want meaningful results, you'll also likely want a file containing germline CNVs (which you should generate from "normal" samples - I used tonsils in this case). The segmentation file needs 6 columns: sample\_ID, chrom, start, end, # of markers in segment, log2(CN)-1. The markers file needs 3 columns: marker\_ID, chrom, position. Be sure to use the appropriate CN probes for your array (Affy SNP6 here). 
+
+This _sounds_ simple but it was actually a huge hassle to make said files, so here's a basic breakdown. Well, if you're running it on new samples at least, otherwise find the markers and segmentation files I made for this previously. 
 
 
-1.) Download affy Genotype Console program and the na32 annotation db. Will have to stick it in the library folder you specify when opening program for first time. Will also have to download
-the na32 library and stick it in the same place. And the na32 CN annotation file. 
+##### 1.) Download the [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1) program and the na32 annotation db. 
+You'll have to set a library folder when opening the program for the first time - this is where you should stick annotation/databse files. Download the na32 library from within the program and stick it in your library folder, along with the na32 CN annotation file from Affy's site. Again, this is all for the **SNP 6 arrays**, and I used the older annotations (na32 instead of na35) for continuity with other analyses. 
 
 
-2.) Take all cel & arr files you want to use and stick them in a folder. Point program to it to load the data. Run the Copy Number/LOH analysis, it'll generate a CNCHP file for each sample. 
-Go to Workspace->Copy Number/LOH Analysis and export them, making sure to include the Log2 ratio for each marker (along with it's chromosome), marker ID, and position.
+##### 2.) Take all cel & arr files you want to use and stick them in a folder. 
+Load the data into the program. Run the Copy Number/LOH analysis, it'll generate a CNCHP file for each sample. Go to Workspace->Copy Number/LOH Analysis and export them, making sure to include the Log2 ratio for each marker (along with it's chromosome), marker ID, and position.
 
 
 3.) Run the Segment Reporting Tool. Be sure to click the option to generate a summary file, which will have the segments for each sample. This takes a bit, so can do next step in meantime.
