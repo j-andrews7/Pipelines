@@ -30,7 +30,7 @@ The BAMs should be broken up into batches as shown here if you want them to run 
 
 This is great when you can allocate enough processors and RAM to handle all the commands running at once, but samtools/BCFtools eat a fair amount of RAM. Rather than sit in the queue for hours waiting for the 48 processors and 128 GB of RAM you requested to handle all your files, you're usually better off breaking them into batches and submitting multiple times as shown here.
 
-**Bash script (var_call.sh)**:  
+**Bash script (var_call_bcf.sh)**:  
 ```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
