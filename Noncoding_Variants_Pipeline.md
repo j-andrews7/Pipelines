@@ -44,7 +44,7 @@ module load bcftools-1.2
 for file in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch1/*.bam; do
 
 	samtools mpileup -u -t DP -f /scratch/jandrews/Ref/hg19.fa $file \
-	| bcftools call -cv -O v - \
+	| bcftools call -cv -O v \
 	| /scratch/jandrews/bin/vcfutils.pl varFilter -D100 > $file.vcf &
 	
 done
