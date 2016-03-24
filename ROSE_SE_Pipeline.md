@@ -54,8 +54,9 @@ wait
 module remove samtools-1.2
 
 
-4.) Place 3-4 sorted BAMs with indexes (K27AC or TF ChIP-Seq) into each batch directory.
+4.) Place 5 sorted BAMs with indexes (K27AC or TF ChIP-Seq) into each batch directory.
 
+TO-DO UPDATE
 5.) Call peaks with MACS.
 Bash script (peak_call.sh)- Could likely be parallelized if a bit of thought went into it, just annoying when some files have input controls and others don't: 
 #!/bin/sh
@@ -70,35 +71,19 @@ macs14 -t /scratch/jandrews/Data/ChIP-Seq/K27AC/Batch8/FL202_K27AC.bam -c /scrat
 
 5.) Place all peaks.bed files from MACS into a single directory. 
 
-###If using merged peaks for all samples to call SEs
-	6.) Concatenate all peaks.bed files.
-	cat *.bed > K27AC_cat.bed
 
-	7.) Remove garbage chromosomes.
-	(sed '/_g/d' file.bed | sed '/chrM/d' | sed '/chrY/d') > output.bed
+6.) Remove garbage chromosomes and unnecessary columns. Run below command from within folder containing the peaks.bed files for each sample.
 
-	8.) Keep only first 4 columns of bed file.
-	cut -f 1-4 file.bed>file.bed
+for F in *.bed; do
+	base=${F##*/}
+	(sed '/_g/d' "$F" | sed '/chrM/d' | sed '/chrY/d' | cut -f 1-4) > ${base%.*}.clean.bed ;
+	cut -f 1-4 ${base%.*}.clean.bed > "$F"
+	rm ${base%.*}.clean.bed
+done
 
-	9.) Sort by chromosome and then by start.
-	sort -k1.4,1.5 -k2 -V input.bed > output.bed
 
-	10.) Merge peaks.
-	mergeBed -c 4 -o collapse,count -i K27AC_PEAKS_catsort.bed > K27AC_PEAKS_merged.bed
-
-###If using specific peaks.bed files to call SEs for each sample.
-	6.) Remove garbage chromosomes and unnecessary columns. Run below command from within folder containing the peaks.bed files for each sample.
-
-	for F in *.bed; do
-		base=${F##*/}
-		(sed '/_g/d' "$F" | sed '/chrM/d' | sed '/chrY/d' | cut -f 1-4) > ${base%.*}.clean.bed ;
-		cut -f 1-4 ${base%.*}.clean.bed > "$F"
-		rm ${base%.*}.clean.bed
-	done
-
-	Go to step 11.
-
-11.) Convert to gff for use in ROSE as constitutive enhancer input.
+7.) Convert to gff format.
+These files will be used as the "enhancers" that are used by ROSE.
 If on cluster, set appropriate version of python as default, not necessary if done locally:
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
@@ -110,37 +95,10 @@ for F in *.bed; do
 	python3 /scratch/jandrews/bin/ROSE_bed2gff.py "$F"
 done
 
-12.) Run ROSE. -t specifies areas around TSS to exclude peaks for stitching. Can be omitted if wanted.
-NOTE: ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder
-before running again if you want to play with the settings.
-###For a .gff containing all merged peaks for all samples.
-Bash script (ROSE.sh):
-#!/bin/sh
-# give the job a name to help keep track of running jobs (optional)
-#PBS -N ROSE
-#PBS -m e
-#PBS -l nodes=1:ppn=4,walltime=4:00:00,vmem=12gb
+8.) Run ROSE. 
+-t specifies areas around TSS to exclude peaks for stitching. Can be omitted if wanted.
+NOTE: ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder before running again if you want to play with the settings.
 
-module load samtools-1.2
-module load R
-
-export PATH=~/Enthought/Canopy_64bit/User/bin:${PATH}
-source ~/.bash_profile
-
-cd /scratch/jandrews/bin/rose/
-
-for file in /scratch/jandrews/Data/ChIP_Seq/K27AC/Batch20/*.bam; do
-
-	base=${file##*/}
-	python ROSE_main.py -g HG19 -t 2500 -r "$file" -i /scratch/jandrews/Data/ChIP_Seq/ROSE/ROSE_SEs_From_All_Merged_Peaks/K27AC_peaks_merged.gff -o /scratch/jandrews/Data/ChIP_Seq/ROSE/ROSE_SEs_From_All_Merged_Peaks/${base%.*} &
-	
-done
-wait
-module remove samtools-1.2
-module remove R
-
-
-###For .gff files specific to each sample.
 Bash script (ROSE_ind.sh)
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
@@ -168,7 +126,7 @@ module remove samtools-1.2
 module remove R
 
 
-13A.) Annotate results (uses ref_seq annotations provided with ROSE).
+9A.) Annotate results (uses ref_seq annotations provided with ROSE).
 Bash script (ROSE_annotate.sh): 
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
@@ -194,7 +152,7 @@ module remove samtools-1.2
 module remove R
 
 
-13B.) Annotate with Gencode (v19, genes only, from our master annotation files) to retain info on lincs, etc.
+9B.) Annotate with Gencode (v19, genes only, from our master annotation files) to retain info on lincs, etc.
 i.) First sort (bash script - sort.sh):
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
@@ -228,7 +186,7 @@ wait
 module remove bedtools2
 
 
-14.) Merge the two annotations into a single file.
+10.) Merge the two annotations into a single file.
 Bash script (merge_SE_annotations.sh):
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
@@ -251,7 +209,7 @@ done
 wait
 
 
-15.) Move files into a new folder. Create subfolders for each cell type and group appropriately (all CC in CC folder, DL in DL, etc.). Create one folder with all
+11.) Move files into a new folder. Create subfolders for each cell type and group appropriately (all CC in CC folder, DL in DL, etc.). Create one folder with all
 files in it. Used for the first method below.
 
 
