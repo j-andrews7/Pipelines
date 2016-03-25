@@ -47,6 +47,7 @@ wait
 module remove samtools-1.2
 ```
 
+
 ##### 1B.) Then index:
 **Bash script (bam_index.sh)**
 ```Bash
@@ -108,6 +109,7 @@ wait
 module remove samtools-1.2
 ```
 
+
 ##### 4.) Index the blacklist removed BAMs.
 Use the same script as above, just edit it slightly to grab the right files. 
 
@@ -136,10 +138,10 @@ for f in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/"$batch"/*"$treat_suffix"; d
 done
 wait
 ```
-
+  
 ##### 6.) Consolidate peaks.bed files from MACS into a single directory. 
-
-
+  
+  
 ##### 7.) Scrub 'em.
 Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample.
 
@@ -151,7 +153,7 @@ for F in *.bed; do
 	rm ${base%.*}.clean.bed
 done
 ```
-
+  
 ##### 8.) Convert to gff format.
 These files will be used as the "enhancers" that are used by ROSE. If on the cluster, set appropriate version of python as default, not necessary if done locally.  
 **Python script (ROSE_bed2gff.py)**
@@ -163,7 +165,8 @@ for F in *.bed; do
 	python3 /scratch/jandrews/bin/ROSE_bed2gff.py "$F"
 done
 ```
-
+  
+  
 ##### 9.) Run ROSE. 
 `-t` specifies areas around the TSS to exclude peaks for stitching. Can be omitted if wanted. ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder before running again if you want to play with the settings.
 
@@ -194,7 +197,8 @@ wait
 module remove samtools-1.2
 module remove R
 ```
-
+  
+  
 ##### 10A.) Annotate results.
 Uses ref_seq annotations provided with ROSE.
 **Bash script (ROSE_annotate.sh)**
@@ -222,7 +226,8 @@ wait
 module remove samtools-1.2
 module remove R
 ```
-
+  
+  
 ##### 10B.) Annotate with Gencode. 
 v19, genes only, from our master annotation files to retain info on lincs, etc.
 **i.) First sort.**
@@ -241,7 +246,7 @@ for fold in /scratch/jandrews/Data/ChIP_Seq/ROSE/ROSE_SEs_From_All_Merged_Peaks/
 done
 wait
 ```
-
+  
 **ii.) Then annotate.**
 **Bash script - (bedtools_closest.sh)**
 ```Bash
@@ -262,7 +267,8 @@ done
 wait
 module remove bedtools2
 ```
-
+  
+  
 ##### 11.) Merge the two annotations.
 This removes redundancies between the two annotations and creates a single file.
 **Bash script (merge_SE_annotations.sh)**
@@ -287,11 +293,12 @@ for fold in /scratch/jandrews/Data/ChIP_Seq/MACS/ROSE_SEs_From_All_Merged_Peaks/
 done
 wait
 ```
-
+  
+  
 ##### 12.) Conglomerate files.
 Copy the merged annotation file for each sample into a single directory. This is used for the first method below.
----
 
+---
 
 ### Two different methods to determine "unique" SEs 
 The first takes into account overlap between SEs in different cell types, only calling those that overlap by **less than 25%** as unique. The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering. If the SEs overlap at all between samples, they will be merged.
