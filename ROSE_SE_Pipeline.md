@@ -229,7 +229,7 @@ module remove R
   
   
 ##### 10B.) Annotate with Gencode. 
-v19, genes only, from our master annotation files to retain info on lincs, etc.
+v19, genes only, from our master annotation files to retain info on lincs, etc.  
 **i.) First sort.**  
 **Bash script - (sort.sh)**
 ```Bash
