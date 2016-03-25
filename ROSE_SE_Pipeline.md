@@ -13,8 +13,6 @@ They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` o
 
 An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
 
-**IMPORTANT**: Be sure to sort and index BAMs before beginning this. There are obviously named bash scripts in the above code folders to do so. All Python scripts here use **Python 3**, so be sure you have the appropriate version installed/set.
-
 **Software Requirements:**
 - [BEDOPS](http://bedops.readthedocs.org/en/latest/index.html)
 - [ROSE](https://bitbucket.org/young_computation/rose)
@@ -24,6 +22,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
+  
 ---
 
 
