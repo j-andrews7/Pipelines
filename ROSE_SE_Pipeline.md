@@ -1,22 +1,35 @@
-Up to date as of 01/25/2015
-Jared's SE Pipeline using ROSE - Young et al, 2013. Highly advise doing this on a computing cluster, as it will take you ages otherwise. Some steps were broken up into multiple
-for the sake of clarity. Several can easy be combined/piped together.
+# Super Enhancer Calling
 
-All necessary scripts should be in Jared's code folder: N:\Bioinformatics\Jareds_Code
-Some scripts (especially bash scripts) may be slightly different than listed here, but they should function in the same way. 
-All python scripts use python 3, but ROSE requires python2.7. Be aware of which you need and use a virtualenv (anaconda on cluster) as needed.
+##### Up to date as of 03/25/2016
 
-Highly recommend using individual peak files to call SEs for each sample. Merging BAMs for a given cell type and calling SEs on that gives muddy results unless all your samples
-sequenced very well (in which case you probably don't want to go that route anyway!).
+A super enhancer pipeline using ROSE - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easy be combined/piped together.
 
-1.) Download ROSE (https://bitbucket.org/young_computation/rose) and stick somewhere. Personal bin folder is always good.
+This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
+
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
+
+All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
+They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
+
+An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
+
+**IMPORTANT**: Be sure to sort and index BAMs before beginning this. There are obviously named bash scripts in the above code folders to do so. All Python scripts here use **Python 3**, so be sure you have the appropriate version installed/set.
+
+**Software Requirements:**
+- [BEDOPS](http://bedops.readthedocs.org/en/latest/index.html)
+- [ROSE](https://bitbucket.org/young_computation/rose)
+- [Samtools, BCFtools, and HTSlib](http://www.htslib.org/)  
+  - These should be available on the CHPC cluster.
+- [Python3](https://www.python.org/downloads/)
+  - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
+- [bedtools](http://bedtools.readthedocs.org/en/latest/)
+  - Also available on the CHPC cluster.
+---
 
 
-2.) Place all BAMs (K27AC or TF (MED1, BRD4, etc) ChIP-Seq) into a directory.
-
-
-3A.) Sort BAMs first. Can just be done from command line if you only have a few:
-Bash script (bam_sort.sh)
+##### 1A.) Sort BAMs first. 
+**Bash script (bam_sort.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N bam_sort
@@ -33,10 +46,11 @@ for file in /scratch/jandrews/Data/ChIP-Seq/K27ME3/Batch2/*.bam; do
 done
 wait
 module remove samtools-1.2
+```
 
-
-3B.) Then index:
-Bash script (bam_index.sh)
+##### 1B.) Then index:
+**Bash script (bam_index.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N bam_index
@@ -52,54 +66,110 @@ for file in /scratch/jandrews/Data/ChIP-Seq/K27ME3/Batch2/*.bam; do
 done
 wait
 module remove samtools-1.2
+```
 
 
-4.) Place 5 sorted BAMs with indexes (K27AC or TF ChIP-Seq) into each batch directory.
+##### 2.) Place BAMs into batches.
+Do the same with any INPUT controls, but in a separate directory. Be sure the INPUT BAM and it's corresponding
+factor BAM are in a Batch directory with the same number, i.e. `./INPUT/BATCH1/sample1_input.sorted.bam` & 
+`./K27AC/BATCH1/sample1_k27ac.sorted.bam`. Put the factor bams with no control in a separate directory, i.e. 
+`./K27AC/NO_CTRL/BATCH1/sample_wNo_ctrl_k27ac.sorted.bam`.
 
-TO-DO UPDATE
-5.) Call peaks with MACS.
-Bash script (peak_call.sh)- Could likely be parallelized if a bit of thought went into it, just annoying when some files have input controls and others don't: 
+This will make things much easier for peak calling later on. 
+
+
+##### 3.) Remove ENCODE blacklist regions.
+[ENCODE](https://sites.google.com/site/anshulkundaje/projects/blacklists) found that ChIP-seq experiments are inherently enriched for huge numbers of reads in specific regions of the genome (usually regions with tons of repeats like near centromeres, telomeres, etc). They suggest removing these reads before calling peaks, but this is even more important for super enhancer calling for which the signal of a given peak is taken into account. Regions with artificially high signal can lead to false positives that can affect the SE curves in a big way, introducing additional noise into data that is already often difficult to decipher.
+
+**Bash script (bam_remove_blacklist.sh)**
+```Bash
 #!/bin/sh
 
 # give the job a name to help keep track of running jobs (optional)
-#PBS -N peak_call
+#PBS -N RM_BLACKLIST_REGIONS
+
 #PBS -m e
-#PBS -l nodes=1:ppn=1,walltime=4:00:00,vmem=4gb
 
-macs14 -t /scratch/jandrews/Data/ChIP-Seq/K27AC/Batch8/FL202_K27AC.bam -c /scratch/jandrews/Data/ChIP-Seq/INPUT/Batch4/FL202_INPUT.bam -f BAM -g hs -n /scratch/jandrews/Data/ChIP-Seq/MACS/FL202_K27AC -w -S --nomodel --shiftsize=150
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=32gb
+
+module load samtools-1.2
+
+for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch*/; do
+
+	cd "$fold"
+	for f in *.bam; do
+		echo "$f"
+		base=${f##/*}
+		samtools view -b -t /home/jandrews/Ref/hg19.fa -L /home/jandrews/Ref/hg19_blacklist_regions_removed.bed -o "${base%.*}".BL_removed.bam "$f" &
+	done
+	wait
+	
+done
+wait
+module remove samtools-1.2
+```
+
+##### 4.) Index the blacklist removed BAMs.
+Use the same script as above, just edit it slightly to grab the right files. 
 
 
-5.) Place all peaks.bed files from MACS into a single directory. 
+##### 5.) Call peaks with MACS.
+**Bash script (peak_call_bl_rmvd.sh and variations)**
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N PEAK_CALL_BL_RMVD_22
+#PBS -m e
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=36gb
+
+batch=Batch22/
+mark=_K27AC
+treat_suffix=.sorted.BL_removed.bam
+control_suffix=_INPUT.sorted.bam
+treat=/scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/
+control=/scratch/jandrews/Data/ChIP_Seq/BAMs/INPUT/
+
+for f in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/"$batch"/*"$treat_suffix"; do
+	base=${f##*/}
+	samp=${base%%_*}
+	macs14 -t "$f" -c "$control""$batch""$samp""$control_suffix" -f BAM -g hs -n /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/"$samp""$mark" -w -S --nomodel --shiftsize=150 &
+done
+wait
+```
+
+##### 6.) Consolidate peaks.bed files from MACS into a single directory. 
 
 
-6.) Remove garbage chromosomes and unnecessary columns. Run below command from within folder containing the peaks.bed files for each sample.
+##### 7.) Scrub 'em.
+Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample.
 
+```Bash
 for F in *.bed; do
 	base=${F##*/}
 	(sed '/_g/d' "$F" | sed '/chrM/d' | sed '/chrY/d' | cut -f 1-4) > ${base%.*}.clean.bed ;
 	cut -f 1-4 ${base%.*}.clean.bed > "$F"
 	rm ${base%.*}.clean.bed
 done
+```
 
-
-7.) Convert to gff format.
-These files will be used as the "enhancers" that are used by ROSE.
-If on cluster, set appropriate version of python as default, not necessary if done locally:
+##### 8.) Convert to gff format.
+These files will be used as the "enhancers" that are used by ROSE. If on the cluster, set appropriate version of python as default, not necessary if done locally.  
+**Python script (ROSE_bed2gff.py)**
+```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python3  /scratch/jandrews/bin/ROSE_bed2gff.py <input.bed>
-
-###For individual samples:
 for F in *.bed; do
 	python3 /scratch/jandrews/bin/ROSE_bed2gff.py "$F"
 done
+```
 
-8.) Run ROSE. 
--t specifies areas around TSS to exclude peaks for stitching. Can be omitted if wanted.
-NOTE: ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder before running again if you want to play with the settings.
+##### 9.) Run ROSE. 
+`-t` specifies areas around the TSS to exclude peaks for stitching. Can be omitted if wanted. ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder before running again if you want to play with the settings.
 
-Bash script (ROSE_ind.sh)
+**Bash script (ROSE_ind.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N ROSE_ind
@@ -124,10 +194,12 @@ done
 wait
 module remove samtools-1.2
 module remove R
+```
 
-
-9A.) Annotate results (uses ref_seq annotations provided with ROSE).
-Bash script (ROSE_annotate.sh): 
+##### 10A.) Annotate results.
+Uses ref_seq annotations provided with ROSE.
+**Bash script (ROSE_annotate.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N ROSE
@@ -150,10 +222,13 @@ done
 wait
 module remove samtools-1.2
 module remove R
+```
 
-
-9B.) Annotate with Gencode (v19, genes only, from our master annotation files) to retain info on lincs, etc.
-i.) First sort (bash script - sort.sh):
+##### 10B.) Annotate with Gencode. 
+v19, genes only, from our master annotation files to retain info on lincs, etc.
+**i.) First sort.**
+**Bash script - (sort.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N sort
@@ -166,8 +241,11 @@ for fold in /scratch/jandrews/Data/ChIP_Seq/ROSE/ROSE_SEs_From_All_Merged_Peaks/
 	
 done
 wait
+```
 
-ii.) Then annotate (batch script - bedtools_closest.sh):
+**ii.) Then annotate.**
+**Bash script - (bedtools_closest.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N bedtools_closest
@@ -184,10 +262,12 @@ for fold in /scratch/jandrews/Data/ChIP_Seq/ROSE/ROSE_SEs_From_All_Merged_Peaks/
 done
 wait
 module remove bedtools2
+```
 
-
-10.) Merge the two annotations into a single file.
-Bash script (merge_SE_annotations.sh):
+##### 11.) Merge the two annotations.
+This removes redundancies between the two annotations and creates a single file.
+**Bash script (merge_SE_annotations.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N merge_SE_annotations
@@ -207,26 +287,23 @@ for fold in /scratch/jandrews/Data/ChIP_Seq/MACS/ROSE_SEs_From_All_Merged_Peaks/
 	
 done
 wait
+```
+
+##### 12.) Conglomerate files.
+Copy the merged annotation file for each sample into a single directory. This is used for the first method below.
+---
 
 
-11.) Move files into a new folder. Create subfolders for each cell type and group appropriately (all CC in CC folder, DL in DL, etc.). Create one folder with all
-files in it. Used for the first method below.
+### Two different methods to determine "unique" SEs 
+The first takes into account overlap between SEs in different cell types, only calling those that overlap by **less than 25%** as unique. The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering. If the SEs overlap at all between samples, they will be merged.
 
+#### The first method (mine):
 
-###-Two different methods to determine "unique" SEs below-###
-The first takes into account overlap between SEs in different cell types, only calling those that overlap by less than 25% as unique.
-The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering.
+##### 1.) Recurrently intersect, merge, and filter.
+This intersects all the SE files, **merging those that overlap by >25% of either element**. Has to be done several times to remove redundant overlaps. The idea is that SE_1 and SE_2 overlap, so it grabs the range for them. SE_1 and SE_3 also overlap, so it pulls the range for them as well. SE_2 and SE_3 don't overlap, so the range isn't pulled from them, but SE_1+SE_2 and SE_2+SE_3 overlap, so the second run through shores up that redundancy. It pulls the ranges of the overlaps first, then the sample column of the overlaps and pastes them together. The output file is then parsed to get SEs found in each cell type, unique to each cell type, and unique and recurrent to each cell type and pretty much every other comparison we could want here.
 
-#The first method (mine):
-
-
-1.) This intersects all the SE files, merging those that overlap by >25% of either element. Has to be done twice to remove redundant overlaps. May have to cycle through a few more times
-if you really crank the overlap up to like 0.99. Smaller overlap catches most of them the first time through. Idea is that A and B overlap, so it grabs the range for them. A and C also overlap, 
-so it pulls the range for them as well. B and C don't overlap, so the range isn't pulled from them, but A+B and A+C overlap, so the second run through shores up that redundancy. Pulls the 
-ranges of the overlaps first, then the sample column of the overlaps and pastes them together. Then parses output file to get SEs found in each cell type, unique to each cell type, and unique 
-and recurrent to each cell type.
-
-Bash script (bedops_full.sh):
+**Bash script (bedops_full.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N BEDOPS_FULL
@@ -275,7 +352,7 @@ for fold in /scratch/jandrews/Data/ChIP_Seq/ROSE/ROSE_SEs_From_Ind_Sample_Peaks/
 
 done
 wait
-
+```
 
 
 #The second method (Patrick's):
