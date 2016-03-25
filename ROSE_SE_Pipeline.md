@@ -200,7 +200,7 @@ module remove R
   
   
 ##### 10A.) Annotate results.
-Uses ref_seq annotations provided with ROSE.
+Uses ref_seq annotations provided with ROSE.  
 **Bash script (ROSE_annotate.sh)**
 ```Bash
 #!/bin/sh
@@ -229,8 +229,8 @@ module remove R
   
   
 ##### 10B.) Annotate with Gencode. 
-v19, genes only, from our master annotation files to retain info on lincs, etc.
-**i.) First sort.**
+v19, genes only, from our master annotation files to retain info on lincs, etc.  
+**i.) First sort.**  
 **Bash script - (sort.sh)**
 ```Bash
 #!/bin/sh
@@ -247,7 +247,7 @@ done
 wait
 ```
   
-**ii.) Then annotate.**
+**ii.) Then annotate.**  
 **Bash script - (bedtools_closest.sh)**
 ```Bash
 #!/bin/sh
@@ -269,8 +269,8 @@ module remove bedtools2
 ```
   
   
-##### 11.) Merge the two annotations.
-This removes redundancies between the two annotations and creates a single file.
+##### 11.) Merge the two annotations.  
+This removes redundancies between the two annotations and creates a single file.  
 **Bash script (merge_SE_annotations.sh)**
 ```Bash
 #!/bin/sh
@@ -295,17 +295,17 @@ wait
 ```
   
   
-##### 12.) Conglomerate files.
+##### 12.) Conglomerate files.  
 Copy the merged annotation file for each sample into a single directory. This is used for the first method below.
 
 ---
 
-### Two different methods to determine "unique" SEs 
+### Two different methods to determine "unique" SEs  
 The first takes into account overlap between SEs in different cell types, only calling those that overlap by **less than 25%** as unique. The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering. If the SEs overlap at all between samples, they will be merged.
 
-#### The first method (mine):
+#### The first method (mine)  
 
-##### 1.) Recurrently intersect, merge, and filter.
+##### 1.) Recurrently intersect, merge, and filter.  
 This intersects all the SE files, **merging those that overlap by >25% of either element**. Has to be done several times to remove redundant overlaps. The idea is that SE_1 and SE_2 overlap, so it grabs the range for them. SE_1 and SE_3 also overlap, so it pulls the range for them as well. SE_2 and SE_3 don't overlap, so the range isn't pulled from them, but SE_1+SE_2 and SE_2+SE_3 overlap, so the second run through shores up that redundancy. It pulls the ranges of the overlaps first, then the sample column of the overlaps and pastes them together. The output file is then parsed to get SEs found in each cell type, unique to each cell type, and unique and recurrent to each cell type and pretty much every other comparison we could want here.
 
 **Bash script (bedops_full.sh)**
