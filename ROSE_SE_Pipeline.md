@@ -296,7 +296,10 @@ wait
   
   
 ##### 12.) Conglomerate files.  
-Copy the merged annotation file for each sample into a single directory. This is used for the first method below.
+Copy the merged annotation file for each sample into a single directory. This is used for the first method below. Be aware that if your sample names have multiple underspaces in them (e.g., `TS102214_NAIVE`), you'll want to add back the suffix using awk for that file.
+```BASH
+awk -F'\t' -vOFS='\t' '{ $4 = $4 "_MEMORY" }1' < TS081414_MEMORY_K27AC_ROSE_SEs_merged_sorted_annotations.bed > TS081414_MEMORY_K27AC_ROSE_SEs_merged_sorted_annotations.fixed.bed
+```
 
 ---
 
