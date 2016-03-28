@@ -16,8 +16,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 **Software Requirements:**
 - [BEDOPS](http://bedops.readthedocs.org/en/latest/index.html)
 - [ROSE](https://bitbucket.org/young_computation/rose)
-- [Samtools, BCFtools, and HTSlib](http://www.htslib.org/)  
-  - These should be available on the CHPC cluster.
+- [Samtools](http://www.htslib.org/)  
+  - This should be available on the CHPC cluster.
 - [Python3](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
