@@ -434,34 +434,40 @@ wait
 ```
 
 
-#The second method (Patrick's):
+#### The second method (Patrick's):
 
-1.) For each cell type, concatenate the SEs for all samples into one file and sort.
+##### 1.) For each cell type, cat and sort.
+This has to be done individually for each cell type.
+```Bash
 cat *.bed | sort -k1,1 -k2,2n > CC_SEs_cat_sorted.bed
+```
 
-
-2.) Merge each SE list for each cell type.
+##### 2.) Merge each SE list for each cell type.
+```Bash
 module load bedtools2
 mergeBed -i CC_CB_cat_sorted.bed -c 4 -o distinct > CC_CB_merged.bed
+```
 
+##### (Optional, but recommended) 
+Isolate only those SEs that are recurrent within a given cell type and BETWEEN INDIVIDUALS (e.g. an SE in CC and CB from same individual does not count as recurrent). Actually only looks at CC/CB right now, edit script to extend functionality if needed.
+>This is a **Major** drawback of this method, as you're removing SEs that aren't recurrent before filtering for those that are unique. This means a non-recurrent SE in a given cell type can't be used to filter non-unique SEs in other cell types (in which it may be recurrent).
 
-### (OPTIONAL, but RECOMMENDED) Isolate only those SEs that are recurrent within a given cell type and BETWEEN INDIVIDUALS 
-(e.g. an SE in CC and CB from same individual does not count as recurrent). Actually only looks at CC/CB right now, edit script to extend functionality if needed.
-##NOTE: THIS IS A MAJOR DRAWBACK OF THIS METHOD, AS YOU'RE REMOVING SEs THAT AREN'T RECURRENT BEFORE FILTERING FOR THOSE THAT ARE UNIQUE. THIS MEANS A NON-RECURRENT SE IN
-A GIVEN CELL TYPE CAN'T BE USED TO FILTER NON-UNIQUE SEs IN OTHER CELL TYPES (IN WHICH IT MAY BE RECURRENT).##
-	2B.) Run script on merged_SE files for each cell type to remove those only occurring in a single sample. 
-	export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-	source activate anaconda
-	for f in *.bed; do
-		python /scratch/jandrews/bin/get_recurrent_SEs.py "$f" "$f".recurrent <delim of sample name column in quotes - ";">
-	done
-	rename .bed.recurrent _recurrent.bed *.bed
+##### 2B.) Remove non-recurrent SEs for each cell type.
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+for f in *.bed; do
+	python /scratch/jandrews/bin/get_recurrent_SEs.py "$f" "$f".recurrent <delim of sample name column in quotes - ";">
+done
+rename .bed.recurrent _recurrent.bed *.bed
+```
 
-
-3.) Move all merged files into a single folder, then multiintersect. Clean up header if needed.
+##### 3.) Multiintersect. 
+Move all the merged files into a new directory and intersect them all. Clean up the header afterward if needed.
+```Bash
 module load bedtools2
 bedtools multiinter -cluster -header -i *.bed > All_SEs_multiinter.bed
-
+```
 
 4.) Parse each unique record to its specific sample file. Will produce a file for each data column containing the positions of the unique SEs for the column (each cell type in this case.)
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
@@ -469,21 +475,28 @@ source activate anaconda
 python parse_multiinter_output.py All_SEs_multiinter.bed
 
 
-###-GET K27AC Signal For a set of SEs from BAMS-###
-We try to use this to determine how "unique" our unique SEs really are. For instance, do DL-specific SEs as defined by our pipeline also have high K27AC signal in CC samples?
-If so, are they really that unique? Outliers are easily identified by doing this as well, e.g., samples that are really driving the majority of the "unique" SE calls.
+## Get Signal for Each SE for Each Sample
 
-1.) Convert the resulting BED files for 'unique' SEs of a given cell type to GFF. 
+---
+
+The signal for each SE for each sample can be useful for calculating things like fold-change, determining significance, etc.
+
+##### 1.) Convert the resulting BED files to GFF. 
+```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 for f in *.bed; do
 	python /scratch/jandrews/bin/ROSE_bed2gff.py "$f"
 done
+```
 
+##### 2.) Get load at each SE for each file.
+Move the GFF files into a new folder and run below script to get RPM'd K27AC load for each sample at each unique SE position. '-r' options gives RPM results, `-m 1` is required for the script to run properly (sets the bin size to 1, apparently running this outside of the main ROSE script means the default (1) isn't set so we have to do it manually).  
 
-2.) Move the GFF files into a new folder and run ROSE_bamToGFF.py to get RPM'd K27AC load for each sample at each unique SE position. So will run on every sample multiple times, once for each cell type (DL, FL, TS, CC_CB in this case). '-r' options gives RPM results, '-m 1' is required for the script to run properly (sets the bin size to 1, they coded it lazily as hell).
-This can be finicky and at times will randomly not run on the cluster if run as a job (literally no idea why). Just run from within the rose bin folder if so - copy and paste commands from here.
-Batch script (ROSE_get_load.sh):
+> This can be finicky and at times will randomly not run on the cluster if run as a job (**literally** no idea why). Just run from within the rose bin folder if so - copy and paste commands from here.
+
+**Batch script (ROSE_get_load.sh)**
+```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N GET_SE_LOAD_DL
@@ -508,17 +521,17 @@ done
 wait
 module remove samtools-1.2
 module remove R
+```
 
+##### 3.) Calculate signal at each SE.
+Within the folder for K27AC load of unique SEs for each cell type (4 in this case), run script to calculate signal from the RPM values in each GFF file. **(signal = RPM (density) * length of SE)**. This is how ROSE calculates it. This script will take each file in the folder and essentially intersect them, yielding a single file in BED-type format with the K27AC signal for each sample at each SE so that they may be easily plotted/manipulated. I create a folder for 'Included' samples and 'Excluded' ones, as the previous step gets the load for all the BAMs, many of which I don't care about since their SEs were ignored anyway.
 
-3.) Within the folder for K27AC load of unique SEs for each cell type (4 in this case), run script to calculate signal from the RPM values in each GFF file. (signal = RPM (density) * length of SE)
-This is how ROSE calculates it. This script will take each file in the folder and essentially intersect them, yielding a single file in BED-type format with the K27AC signal for each sample
-at each SE so that they may be easily plotted. I create a folder for 'Included' samples and 'Excluded' ones, as the previous step gets the load for all the BAMs, many of which I don't care about.
-
-Python script (calc_SE_signal.py):
+**Python script (calc_SE_signal.py)**
+```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 python /scratch/jandrews/bin/calc_SE_signal.py <output.bed> <gff files>
-
+```
 
 4.) Create line graph with each SE as a data series, will plot a line for each SE showing signal in each sample that'll let you determine how "unique" they really are.
 (Hint: not very). I like to take the signal from the Unique SEs of each cell type for each sample, copy them into excel, and calculate the log2(FC) of K27AC signal for each SE
@@ -543,13 +556,6 @@ data_dm <- data.matrix(data)
 shades <- c(seq(-6,2.25,length=1),seq(2.26,6,length=500))
 
 heatmap.2(no_21314_dm, density.info = "none", col=colorRampPalette(c("white","red4"))(500), margins = c(6,5), keysize = 1, cexRow = 0.6, cexCol = 0.7, trace="none", breaks=shades, main = "Unique Recurrent SEs vs Median Enhancer", key.xlab = "Log2(FC) of SE K27AC Signal over Median Enhancer", Rowv = FALSE, Colv=FALSE)
-
-
-
-###-Determine amplifications/deletions that overlap SEs.
-Need to run GISTIC to determine focal amplifications/deletions first. See CN_Analysis_Pipeline.txt for more details. 
-
-
 
 
 ###-Check K27AC of SEs using RPM'd, QN'd MMPID K27AC values for each sample that Liv generated.
