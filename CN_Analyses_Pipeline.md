@@ -69,8 +69,13 @@ mergeBed -c 4,5,6 -o distinct,max,collapse -i CLL_AMPS.bed > CLL_AMPS_MERGED.bed
 ```
 
 ##### 9.) Annotate known CNVs.
-While CNAs unique to the samples are likely to be most interesting, a CNV found in other cells and cancers may still have a functional impact. As such, we **don't remove common CNVs**, rather we simply make a note that the CNV is found elsewhere. There are many lists of common CNVs (HapMap, DGV, and a 2015 Nature paper foremost among them). Here, I use the [DGV gold standard list](http://dgv.tcag.ca/dgv/app/downloads?ref=) and an inclusive list from a [2015 Nature Genetics Review](http://www.nature.com/nrg/journal/v16/n3/full/nrg3871.html).
+While CNAs unique to the samples are likely to be most interesting, a CNV found in other cells and cancers may still have a functional impact. As such, we **don't remove common CNVs**, rather we simply make a note that the CNV is found elsewhere. There are many lists of common CNVs (HapMap, DGV, and a [2015 Nature Genetics Review](http://www.nature.com/nrg/journal/v16/n3/full/nrg3871.html) among them). Here, I use the [DGV gold standard list](http://dgv.tcag.ca/dgv/app/downloads?ref=).
 
+
+```Bash
+module load bedtools2
+bedtools intersect -wa -wb -a CLL_AMPS_MERGED.bed -b DGV.GoldStandard.July2015.hg19.gff3 > CLL_AMPS_MERGED_ANNOT.bed
+```
 
 TO-DO - ORDERING COLUMNS, REMOVING UNWANTED SAMPLES, BREAKING INTO AMP/DEL LISTS AND MERGING
 
