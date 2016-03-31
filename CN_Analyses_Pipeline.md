@@ -95,6 +95,7 @@ grep '\.' CLL_AMPS_MERGED_ANNOT.bed > CLL_AMPS_MERGED_ANNOT_CNA.bed
 grep '\.' RECURRENT_CLL_AMPS_MERGED_ANNOT.bed > RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed
 ```
 
+
 ##### 12.) Intersect with SEs and Enhancers.
 First, I typically remove enhancers found **within** SEs to remove redundancy, then intersect these with the CNVs.
 
@@ -126,4 +127,16 @@ bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTS
 bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_CLL_AMPS_CNA.bed
 bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
 bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
+```
+
+##### 13.) Get overlapping genes in CNVs/CNAs.
+Now we grab the genes in each CNV/CNA in each of these files. You can use whatever annotations you want for this, I used only the Genes in Gencode v19 (include LINCs). The `-size` option allows you to add wings to your input file to get genes within a certain range of a feature, but I only want those that directly overlap. Could also go back and run this script on the original CNV/CNA files for each cell type if wanted. You have to set the chromosome, start, and end column positions yourself. 
+
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+for file in *.bed; do
+  python /scratch/jandrews/bin/get_genes_in_range.py -size 0 -i "$file" -g /scratch/jandrews/Ref/gencode.v19.annotation_sorted_genes_only.bed -o ${file%.*}_GENES.bed
+done
 ```
