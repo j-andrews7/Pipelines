@@ -69,17 +69,61 @@ mergeBed -c 4,5,6 -o distinct,max,collapse -i CLL_AMPS.bed > CLL_AMPS_MERGED.bed
 ```
 
 ##### 9.) Annotate known CNVs.
-While CNAs unique to the samples are likely to be most interesting, a CNV found in other cells and cancers may still have a functional impact. As such, we **don't remove common CNVs**, rather we simply make a note that the CNV is found elsewhere. There are many lists of common CNVs (HapMap, DGV, and a [2015 Nature Genetics Review](http://www.nature.com/nrg/journal/v16/n3/full/nrg3871.html) among them). Here, I use the [DGV gold standard list](http://dgv.tcag.ca/dgv/app/downloads?ref=).
+While CNAs unique to the samples are likely to be most interesting, a CNV found in other cells and cancers may still have a functional impact. As such, we **don't remove common CNVs**, rather we simply make a note that the CNV is found elsewhere. There are many lists of common CNVs (HapMap, DGV, and a [2015 Nature Genetics Review](http://www.nature.com/nrg/journal/v16/n3/full/nrg3871.html) among them). Here, I use the [DGV gold standard list](http://dgv.tcag.ca/dgv/app/downloads?ref=). 
 
 
 ```Bash
 module load bedtools2
-bedtools intersect -wa -wb -a CLL_AMPS_MERGED.bed -b DGV.GoldStandard.July2015.hg19.gff3 > CLL_AMPS_MERGED_ANNOT.bed
+bedtools intersect -loj -a CLL_AMPS_MERGED.bed -b DGV.GoldStandard.July2015.hg19.gff3 \
+| cut -f1-6,8 \
+| sort -k1,1 -k2,2n \
+| uniq - > CLL_AMPS_MERGED_ANNOT.bed
 ```
 
-TO-DO - ORDERING COLUMNS, REMOVING UNWANTED SAMPLES, BREAKING INTO AMP/DEL LISTS AND MERGING
+##### 10.) Filter for recurrence.
+This can easily be done by grepping for the `,` delimiter in our sample column.
 
+```Bash
+grep ',' CLL_AMPS_MERGED_ANNOT.bed > RECURRENT_CLL_AMPS_MERGED_ANNOT.bed
+```
 
-6.) Filter segmentation file, only keeping segments with at least 5 markers present in them. Can be adjusted if you want to be more stringent.
-awk -F'\t' -v OFS='\t' {(if $5 >= 5) print $1, $2, $3, $4, $5, $6}' Segs_For_GISTIC.txt > Segs_For_Gistic_Min5.txt
+##### 11.) Filter for true CNAs.
+Useful to do this for both those that are recurrent and those that are not. The period must be escaped as linux will otherwise consider '.' as any character. I like to move the different cell types into their own folders at this point as well.
 
+```Bash
+grep '\.' CLL_AMPS_MERGED_ANNOT.bed > CLL_AMPS_MERGED_ANNOT_CNA.bed
+grep '\.' RECURRENT_CLL_AMPS_MERGED_ANNOT.bed > RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed
+```
+
+##### 12.) Intersect with SEs and Enhancers.
+First, I typically remove enhancers found **within** SEs to remove redundancy, then intersect these with the CNVs.
+
+```Bash
+module load bedtools2
+bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b All_SEs.bed > MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed
+bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b CLL_SEs.bed > MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed
+
+# Intersect with the amps & dels(not shown).
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/ALL_SEs_IN_CLL_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/CLL_SEs.bed -b CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/CLL_SEs_IN_CLL_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/ALL_SEs_IN_RECURRENT_CLL_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/CLL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/CLL_SEs_IN_RECURRENT_CLL_AMPS.bed
+
+# Then the CNAs.
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/ALL_SEs_IN_CLL_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/CLL_SEs.bed -b CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/CLL_SEs_IN_CLL_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/ALL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/CLL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/CLL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
+
+# Then MMPIDs outside the SEs and in the amps/dels.
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_CLL_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_CLL_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_CLL_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_RECURRENT_CLL_AMPS.bed
+
+# Then MMPIDs outside the SEs and in the CNAs.
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_CLL_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_CLL_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
+```
