@@ -1,7 +1,7 @@
 # CN Analysis 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These can then be intersected with CNAs identified in other publications or with our SE and MMPID data.
 
-**Up to date as of 03/29/2016.**  
+**Up to date as of 03/30/2016.**  
 jared.andrews07@gmail.com
 
 ---
