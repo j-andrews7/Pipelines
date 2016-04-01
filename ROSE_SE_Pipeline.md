@@ -482,8 +482,6 @@ python parse_multiinter_output.py All_SEs_multiinter.bed
 
 ## Get Signal for Each SE for Each Sample
 
----
-
 The signal for each SE for each sample can be useful for calculating things like fold-change, determining significance, etc.
 
 ##### 1.) Convert the BED file for All_SEs to GFF format. 
