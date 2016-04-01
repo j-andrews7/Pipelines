@@ -231,18 +231,19 @@ module remove R
 ##### 10B.) Annotate with Gencode. 
 v19, genes only, from our master annotation files to retain info on lincs, etc.  
 **i.) First sort.**  
-**Bash script - (sort.sh)**
+**Bash script - (SE_sort.sh)**
 ```Bash
 #!/bin/sh
+
 # give the job a name to help keep track of running jobs (optional)
-#PBS -N sort
+#PBS -N SE_sort_std
 #PBS -m e
-#PBS -l nodes=1:ppn=1,walltime=4:00:00,vmem=4gb
+#PBS -l nodes=1:ppn=1,walltime=4:00:00,vmem=8gb
 
-for fold in /scratch/jandrews/Data/ChIP_Seq/ROSE/ROSE_SEs_From_All_Merged_Peaks/*/; do
-
-	sort -k 1,1 -k2,2n  "$fold"*SuperEnhancers.bed > "$fold"ROSE_SuperEnhancers_sorted.bed & 
+for fold in /scratch/jandrews/Data/ChIP_Seq/ROSE/STANDARD/RESULTS/*/; do
 	
+	sort -k 1,1 -k2,2n "$fold"*SuperEnhancers.bed > "$fold"ROSE_SuperEnhancers_sorted.bed &
+
 done
 wait
 ```
