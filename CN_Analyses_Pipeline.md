@@ -1,13 +1,32 @@
 # CN Analysis 
-The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data.
 
 **Up to date as of 03/30/2016.**  
 jared.andrews07@gmail.com
 
+The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data.
+
+This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
+
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
+
+All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
+They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
+
+An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
+
+**Software Requirements:**
+- [BEDOPS](http://bedops.readthedocs.org/en/latest/index.html)
+- [Samtools](http://www.htslib.org/)  
+  - This should be available on the CHPC cluster.
+- [Python3](https://www.python.org/downloads/)
+  - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
+- [bedtools](http://bedtools.readthedocs.org/en/latest/)
+  - Also available on the CHPC cluster.
+- [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1)
+
 ---
 
-##### 1.) Download the [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1) program and the na32 annotation db. 
-You'll have to set a library folder when opening the program for the first time - this is where you should stick annotation/databse files. Download the na32 library from within the program and stick it in your library folder, along with the na32 CN annotation file from Affy's site. Again, this is all for the **SNP 6 arrays**, and I used the older annotations (na32 instead of na35) for continuity with other analyses. 
+##### 1.) Download the [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1) program and the na32 annotation db. You'll have to set a library folder when opening the program for the first time - this is where you should stick annotation/databse files. Download the na32 library from within the program and stick it in your library folder, along with the na32 CN annotation file from Affy's site. Again, this is all for the **SNP 6 arrays**, and I used the older annotations (na32 instead of na35) for continuity with other analyses. 
 
 
 ##### 2.) Take all cel & arr files you want to use and stick them in a folder. 
@@ -127,10 +146,18 @@ bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTS
 bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_CLL_AMPS_CNA.bed
 bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
 bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_CLL_SEs_IN_RECURRENT_CLL_AMPS_CNA.bed
+
+# Then MMPIDs in the amps/dels.
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_IN_CLL_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_IN_RECURRENT_CLL_AMPS.bed
+
+# Then MMPIDs and in the CNAs.
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_IN_CLL_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_CLL_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_IN_RECURRENT_CLL_AMPS_CNA.bed
 ```
 
 ##### 13.) Get overlapping genes in CNVs/CNAs.
-Now we grab the genes in each CNV/CNA in each of these files. You can use whatever annotations you want for this, I used only the Genes in Gencode v19 (include LINCs). The `-size` option allows you to add wings to your input file to get genes within a certain range of a feature, but I only want those that directly overlap. Could also go back and run this script on the original CNV/CNA files for each cell type if wanted. You have to set the chromosome, start, and end column positions yourself. 
+Now we grab the genes in each CNV/CNA in each of these files. You can use whatever annotations you want for this, I used only the genes in Gencode v19 (includes LINCs). The `-size` option allows you to add wings to your input file to get genes within a certain range of a feature, but I only want those that directly overlap. Could also go back and run this script on the original CNV/CNA files for each cell type if wanted. You have to set the chromosome, start, and end column positions yourself cause I'm lazy and didn't think ahead when making this script for whatever I had made it for in the first place. 
 
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
