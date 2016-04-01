@@ -469,7 +469,7 @@ module load bedtools2
 bedtools multiinter -cluster -header -i *.bed > All_SEs_multiinter.bed
 ```
 
-4.) Get 'Unique' SEs.
+##### 4.) Get 'Unique' SEs.
 Parses each unique record to its specific sample file. Will produce a file for each data column containing the positions of the unique SEs for the column (each cell type in this case.)
 
 ```Bash
@@ -478,13 +478,15 @@ source activate anaconda
 python parse_multiinter_output.py All_SEs_multiinter.bed
 ```
 
+---
+
 ## Get Signal for Each SE for Each Sample
 
 ---
 
 The signal for each SE for each sample can be useful for calculating things like fold-change, determining significance, etc.
 
-##### 1.) Convert the resulting BED files to GFF. 
+##### 1.) Convert the BED file for All_SEs to GFF format. 
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
@@ -536,16 +538,16 @@ source activate anaconda
 python /scratch/jandrews/bin/calc_SE_signal.py <output.bed> <gff files>
 ```
 
-4.) Create line graph with each SE as a data series, will plot a line for each SE showing signal in each sample that'll let you determine how "unique" they really are.
-(Hint: not very). I like to take the signal from the Unique SEs of each cell type for each sample, copy them into excel, and calculate the log2(FC) of K27AC signal for each SE
-over the median enhancer for that sample. Figure out the median enhancer from the all_enhancer output table from ROSE - includes signal. Can then smash these FC ratios for the SEs
-unique to each cell type together and create a heatmap in R. This gives a better representation of how "unique" the calls really are, as it's comparing within the samples themselves.
-I included 4 tonsil samples (bulk CD19+) in the unique analysis, but omitted them from the heatmap, as they're such a heterogeneous population that it causes a lot of noise.
+Now you can do whatever you like with the table you have. Below is a method I've used to determine how "unique" each SE is (hint: **not very**). It's tough to determine if an SE "specific" to a given cell type is just barely missing the cutoff in samples of another cell type. This approach *tries* to give an idea of this, but it's not a perfect way to do so.
+
+##### 4.) Plot data.
+Create a line graph with each SE as a data series, plotting a line for each SE showing signal in each sample will help you determine how "unique" they really are. I like to take the signal from the Unique SEs of each cell type for each sample, copy them into excel, and calculate the log2(FC) of K27AC signal for each SE over the median enhancer for that sample. Figure out the median enhancer for each sample from the all_enhancer output table from ROSE - includes the signal so you can use to it calculate foldchange. Can then smash these FC ratios for the SEs unique to each cell type together and create a heatmap in R. This gives a better representation of how "unique" the calls really are, as it's comparing within the samples themselves.
 
 
-5.) Create said heatmap in R. Keep Rowv = False to keep rows in order. I usually save several variations of each heatmap.  
-R code:
+##### 5.) Create said heatmap in R. 
+Keep Rowv = False to keep rows in order. I usually save several variations of each heatmap.  
 
+```R
 data <- read.table("signal_table_from_excel.txt", header = TRUE)
 data$START <- NULL
 data$END <- NULL
@@ -559,27 +561,5 @@ data_dm <- data.matrix(data)
 shades <- c(seq(-6,2.25,length=1),seq(2.26,6,length=500))
 
 heatmap.2(no_21314_dm, density.info = "none", col=colorRampPalette(c("white","red4"))(500), margins = c(6,5), keysize = 1, cexRow = 0.6, cexCol = 0.7, trace="none", breaks=shades, main = "Unique Recurrent SEs vs Median Enhancer", key.xlab = "Log2(FC) of SE K27AC Signal over Median Enhancer", Rowv = FALSE, Colv=FALSE)
+```
 
-
-###-Check K27AC of SEs using RPM'd, QN'd MMPID K27AC values for each sample that Liv generated.
-1.) Get bed file of SE positions using cut or awk or whatever. Reorder the MMPID K27AC file if necessary.
-
-
-2.) Intersect the SE positions with the MMPID K27AC values file. Probably have to take MMPID header off first, paste it into notepad or something to add back later.
-cat MMPID_K27AC_RPM_QN_FINAL.bed ALL_SES_POSITIONS_SORTED.bed > SE_K27AC_VALS_CAT.bed
-module load bedtools2
-bedtools intersect -wa -wb -a ALL_SES_POSITIONS_SORTED.bed -b MMPID_K27AC_RPM_QN_FINAL_NOHEADER_CHR.bed > SE_MMPID_ISEC.bed
-
-
-3.) Cut the columns with the MMPID positions, don't care about them. 
-cut -f1-3,7- SE_MMPID_ISEC.bed > SE_MMPID_VALUES.bed
-
-
-4.) Merge and sum all the values for the sample columns.
-module load bedtools2
-bedtools merge -c 4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88 -o sum -i SE_MMPID_VALUES.bed > SE_SUMMED_MMPID_VALUES.bed
-
-
-5.) Add back header and do whatever.
-
-From here on out, can do whatever analyses you need. Actual documentation, what a wonder.
