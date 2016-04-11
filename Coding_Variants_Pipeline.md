@@ -1,10 +1,29 @@
-Up to date as of 01/15/2015.
-Jared's imitation of Liv's Coding variant calling pipeline. This also began as a comparison between the samtools and varscan variant callers as well,
-but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
+# Coding Variants Pipeline
+**Up to date as of 01/15/2015.**
+Jared's imitation of Liv's Coding variant calling pipeline. This also began as a comparison between the samtools and varscan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
 
-All necessary scripts should be in Jared's code folder: N:\Bioinformatics\Jareds_Code
+This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
 
-IMPORTANT: Be sure to sort and index BAMs before beginning this. Bash scripts in code folder to do so.
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
+
+All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
+They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
+
+An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
+
+**IMPORTANT**: Be sure to sort and index BAMs before beginning this. There are obviously named bash scripts in the above code folders to do so. All Python scripts here use **Python 3**, so be sure you have the appropriate version installed/set.
+
+**Software Requirements:**
+- [BEDOPS](http://bedops.readthedocs.org/en/latest/index.html)
+- [Samtools, BCFtools, and HTSlib](http://www.htslib.org/)  
+  - These should be available on the CHPC cluster.
+- [Python3](https://www.python.org/downloads/)
+  - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
+- [bedtools](http://bedtools.readthedocs.org/en/latest/)
+  - Also available on the CHPC cluster.
+
+
+---
 
 1A.) samtools: mpileup piped to varscan to call variants with filter for read depth (5) and quality (15).
 Bash script (var_call_varscan.sh):
@@ -48,30 +67,6 @@ wait
 module remove samtools-1.2
 module remove bcftools-1.2
 
-
-or with new method (supposedly better for multiallelic/rare variant finding).
-
-
-Bash script (var_call_bcf_new.sh):
-#!/bin/sh
-
-# give the job a name to help keep track of running jobs (optional)
-#PBS -N Var_Call_BCF_NEW
-#PBS -m e
-#PBS -l nodes=1:ppn=1,walltime=8:00:00,vmem=16gb
-
-module load samtools-1.2
-module load bcftools-1.2
-
-for file in /scratch/jandrews/Data/RNA_Seq/ALIGNED_BAMs/Batch9/*.bam; do
-
-	base=${f##*/}
-	samtools mpileup -u -t DP -f /scratch/jandrews/Ref/hg19.fa $file | bcftools call -mv -O v - | /scratch/jandrews/bin/vcfutils.pl varFilter -D100 > /scratch/jandrews/Data/Variant_Calling/Coding/BCFTools/New/VCFs/${base%.*}.vcf &
-	
-done
-wait
-module remove samtools-1.2
-module remove bcftools-1.2
 
 
 1B ii.) Filter the BCFtools VCFs for the same quality and read-depth that VarScan used.
@@ -269,15 +264,6 @@ perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_eff
 
 10.) Intersect with GM TF ChIP-Seq data.
 bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/Final_Results/coding_VS_BCF_final_annotated.vcf -b GM12878_TF151_names_final.bed > Coding_variants_GM_ChIP_TFs_isec.bed
-
-
-# annotate with VEP
- - assigns variants to known proteins
- - predicts impact
-
-# remove known SNPs
-
-# filter for those predicted to have moderate to high impact
 
 
 ###-To figure out insert sizes for PINDEL-###
