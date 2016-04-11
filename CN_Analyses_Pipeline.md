@@ -26,11 +26,12 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 ---
 
-##### 1.) Download the [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1) program and the na32 annotation db. You'll have to set a library folder when opening the program for the first time - this is where you should stick annotation/databse files. Download the na32 library from within the program and stick it in your library folder, along with the na32 CN annotation file from Affy's site. Again, this is all for the **SNP 6 arrays**, and I used the older annotations (na32 instead of na35) for continuity with other analyses. 
+##### 1.) Set up environment.
+Download the [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1) program and the na32 annotation db. You'll have to set a library folder when opening the program for the first time - this is where you should stick annotation/databse files. Download the na32 library from within the program and stick it in your library folder, along with the na32 CN annotation file from Affy's site. Again, this is all for the **SNP 6 arrays**, and I used the older annotations (na32 instead of na35) for continuity with other analyses. 
 
 
-##### 2.) Take all cel & arr files you want to use and stick them in a folder. 
-Load the data into the program. Run the Copy Number/LOH analysis, it'll generate a CNCHP file for each sample. Go to Workspace->Copy Number/LOH Analysis and export them, making sure to include the Log2 ratio for each marker (along with it's chromosome), marker ID, and position.
+##### 2.) Conglomerate files.
+Take all cel & arr files you want to use and stick them in a folder. Load the data into the program. Run the Copy Number/LOH analysis, it'll generate a CNCHP file for each sample. Go to Workspace->Copy Number/LOH Analysis and export them, making sure to include the Log2 ratio for each marker (along with it's chromosome), marker ID, and position.
 
 
 ##### 3.) Run the Segment Reporting Tool. 
@@ -219,4 +220,134 @@ done
 for file in *.bed; do
   python /scratch/jandrews/bin/get_genes_in_range.py -size 0 -i "$file" -g /scratch/jandrews/Ref/gencode.v19.annotation_sorted_genes_only.bed -o ${file%.*}_GENES.bed
 done
+```
+
+##### 14.) Get SE target gene(s).
+Now we can also get the target genes for the SEs using the same script. This time I add 100 kb wings to the start/stop of the SE though, as a SE's targets genes may be quite a ways away. Will then move the SE_Genes column to immediately after the SE positions within the file.
+
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+for file in *GENES.bed; do
+  python /scratch/jandrews/bin/get_genes_in_range.py -size 100000 -i "$file" -C 1 -S 2 -E 3 -g /scratch/jandrews/Ref/gencode.v19.annotation_sorted_genes_only.bed -o ${file%.*}_SE_GENES.bed
+  awk -F"\t" -v OFS="\t" '{print $1, $2, $3, $4, $11, $5, $6, $7, $8, $9, $10}' ${file%.*}_SE_GENES.bed > ${file%.*}.100KB_SE_GENES.bed
+  rm ${file%.*}_SE_GENES.bed
+done
+```
+
+##### 15.) Rank CNVs containing SEs by recurrence.
+This will rank the amps/dels containing SEs by recurrence of the CNV. 
+
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+type=CLL
+python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py ALL_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_ALL_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed 
+python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py ALL_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_ALL_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed 
+python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py "$type"_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_"$type"_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed 
+python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py "$type"_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_"$type"_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed 
+```
+
+At this point, you should have more or less whatever you need to do whatever you want. **Adding headers** before doing anything else with them is probably a good idea though.
+
+## Integrating circuit table data for MMPIDs
+As the circuit tables for FL and DL contain fold-change values for FAIRE, H3AC, and K27AC for each sample at each MMPID relative to the average of the CCs, they can be useful for us to determine which MMPIDs are actually affected by the CNVs.
+
+##### 1.) Process the circuit tables.
+The circuit tables need a bit of work before they can be used directly (though I left these lying around somewhere after parsing them, so searching around might save you some trouble). The **DL table** erroneously has a sample called DL140, which is actually a CLL sample and needs to be removed. In addition, the MMPIDs are in the first column, but we want a psuedo-bed format for intersecting so we move them to the 4th column.
+
+The **FL table** has some extraneous columns we don't need as well as having the MMPID in the first column.
+
+```Bash
+# DL table.
+sed '/DL140/d' DL_circuits_May13_2014.txt | awk -v OFS='\t' '{print $2, $3, $4, $1, $5, $6, $7, $8, $9, $10, $11}' > DL_circuits_May13_2014.processed.txt
+
+# FL table.
+cut -f1-4,10-16 FL_circuits_May2014.txt | awk -v OFS='\t' '{print $2, $3, $4, $1, $5, $6, $7, $8, $9, $10, $11}' > FL_circuits_May2014.final.txt
+```
+
+There was also a mixup with the expression of one sample - DL3A538, as it's expression was listed for DL3B538 (not an actual sample) on a different line. As such, this had to be remedied with a one-off script that grabbed the expression value for each gene for DL3B538 and stuck it in the line for DL3A538.
+
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+python /scratch/jandrews/bin/fix_dl_circuit_expression.py DL_circuits_May13_2014.processed.txt DL_circuits_May13_2014.final.txt
+```
+
+##### 2.) Intersect with AMPS/DELS tables for the appropriate cell type.
+Copy and paste the header from the circuit table somewhere and then remove it or bedtools will fight you. We'll have to add headers after this anyway. 
+
+```Bash
+# To remove header after copy and pasting it into a text editor.
+sed -i -e "1d" DL_circuits_May13_2014.final.txt
+
+module load bedtools2
+bedtools intersect -wa -wb -a DL_circuits_May13_2014.final.bed -b ../DL_CNVs/DL_AMPS_MERGED_ANNOT_GENES.bed > DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed
+bedtools intersect -wa -wb -a DL_circuits_May13_2014.final.bed -b ../DL_CNVs/DL_DELS_MERGED_ANNOT_GENES.bed > DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES.bed
+
+bedtools intersect -wa -wb -a FL_circuits_May2014.final.bed -b ../FL_CNVs/FL_AMPS_MERGED_ANNOT_GENES.bed > FL_CIRCUIT_MMPIDs_IN_FL_AMPS_MERGED_ANNOT_GENES.bed
+bedtools intersect -wa -wb -a FL_circuits_May2014.final.bed -b ../FL_CNVs/FL_DELS_MERGED_ANNOT_GENES.bed > FL_CIRCUIT_MMPIDs_IN_FL_DELS_MERGED_ANNOT_GENES.bed
+```
+
+##### 3.) Add headers.
+Files are quite complicated at this point, so now we add headers since we should be done intersecting.
+
+```Bash
+{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed; } > DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES_HEADER.bed
+
+# File names are long enough as is. Try to keep them short.
+mv DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES_HEADER.bed DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed
+mv DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES_HEADER.bed DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES.bed
+```
+
+##### 4.) Parse for potentially interesting MMPIDs.
+This script matches samples between the MMPID and CNVs and then checks if the sample meets the FC cutoffs for either H3AC or K27AC at the MMPID that we'd expect with a deletion or amplification as specified. With the `-r` option, it also only prints MMPIDs that meet the cutoffs recurently, i.e., in at least two samples. It removes lines with no expression values for the gene.
+
+```
+Tries to match MMPIDs that hit the FC cutoff specified in the circuit table for a given sample to a CNV occurring in that sample as well.
+
+Usage: python match_FC_to_CNVs.py -t <amp or del> -i <input.bed> -o <output.bed> [OPTIONS]
+
+Args:
+	(required) -t <amp or del> = Type of CNVs that are in the file. 
+  (required) -i <input.bed> = Name of locus list file to process.
+  (required) -o <output.bed> = Name of output file to be created.
+  (optional) -cut <value> = Linear FC magnitude cutoff for H3AC/K27AC used to filter out uninteresting MMPIDs (default=2). Results must meet cutoff to be included.
+  (optional) -r = If included, only includes MMPIDs that are recurrent after applying the cutoff filters and such.
+```
+
+**Actual use:**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed -o DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES_2FC.bed -cut 2 -r
+
+python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES.bed -o DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES_2FC.bed -cut 2 -r
+```
+
+##### 5.) Remove non-FAIRE positive MMPIDs.
+Pretty much any enhancer has a FAIRE peak in it, so we can remove those that don't. May have to remove the header and add it back after.
+
+```Bash
+module load bedtools2
+
+type=DL
+# Remove header.
+sed -i -e "1d" RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed
+sed -i -e "1d" RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed
+
+# Intersect
+bedtools intersect -wa -a RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed -b MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed
+bedtools intersect -wa -a RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed -b MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed
+
+# Add back header.
+{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed; } > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC_HEADER.bed
+{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed; } > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC_HEADER.bed
+
+# File names are long enough as is. Try to keep them short.
+mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed
+mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed
 ```
