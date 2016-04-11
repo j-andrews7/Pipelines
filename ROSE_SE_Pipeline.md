@@ -528,7 +528,7 @@ module remove R
 ```
 
 ##### 3.) Calculate signal at each SE.
-Within the folder for K27AC load of unique SEs for each cell type (4 in this case), run script to calculate signal from the RPM values in each GFF file. **(signal = RPM (density) * length of SE)**. This is how ROSE calculates it. This script will take each file in the folder and essentially intersect them, yielding a single file in BED-type format with the K27AC signal for each sample at each SE so that they may be easily plotted/manipulated. I create a folder for 'Included' samples and 'Excluded' ones, as the previous step gets the load for all the BAMs, many of which I don't care about since their SEs were ignored anyway.
+Within the folder for K27AC load of unique SEs for each cell type (4 in this case), run script to calculate signal from the RPM values in each GFF file. **(signal = RPM (density) * length of SE)**. This is how ROSE calculates it. This script will take each file in the folder and essentially intersect them, yielding a single file in BED-type format with the K27AC signal for each sample at each SE so that they may be easily plotted/manipulated. It will also add an SE_ID for each SE to the 4th column for easy reference later. I create a folder for 'Included' samples and 'Excluded' ones, as the previous step gets the load for **all the BAMs**, many of which I don't care about since their SEs were ignored anyway.
 
 **Python script (calc_SE_signal.py)**
 ```Bash
