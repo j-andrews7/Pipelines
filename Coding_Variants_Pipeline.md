@@ -299,11 +299,13 @@ In this example, 0000.vcf will be records unique to first provided file. 0001.vc
 `grep -v '#' -c file.vcf `
 
 
+---
 
 ### To figure out insert sizes for PINDEL
-Our samples have an average/median insert size of 200 bp, though the histograms look more like majority are 150 bp.
+PINDEL is for figuring out more about indels, inversions, etc, but it's really not meant to run on RNA-Seq data. Regardless, you have to know the insert sizes for your samples to run it, so the below scripts will determine them for you. Our samples have an average/median insert size of 200 bp, though the histograms look more like majority are 150 bp.
 
-Bash script(get_insert_sizes.sh):
+**Bash script(get_insert_sizes.sh):**
+```Bash
 #!/bin/sh
 
 # give the job a name to help keep track of running jobs (optional)
@@ -328,3 +330,4 @@ done
 
 module remove R
 module remove java
+```
