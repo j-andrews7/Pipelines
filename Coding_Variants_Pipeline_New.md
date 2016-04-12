@@ -1,8 +1,10 @@
 # Coding Variants Pipeline
-**Up to date as of 04/11/2016.**  
+**Up to date as of 04/12/2016.**  
+This differs from the "old" pipeline by incorporating the coding variants that come out of the noncoding pipeline.
+
 Jared's imitation of Liv's Coding variant calling pipeline. This also began as a comparison between the samtools and varscan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
 
-This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
+This was done mostly on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
 
 > Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
 
@@ -87,8 +89,15 @@ module remove bcftools-1.2
 
 At this point, I also did a comparison between the SNP arrays with these callers, which is explained [below](#comparison) after the rest of the pipeline. 
 
+##### 2.) Convert FunSeq variants to VCF.
+After parsing the FunSeq output from the Noncoding Variant Pipeline, take the bed files with the FunSeq coding variants for each RNA-seq sample and stick them all in a new folder. Can use a MAF of 1 with FunSeq so that common SNPs aren't removed if wanted, but a MAF of 0.01 is what I typically use. Then convert them to VCF format with a bit of awkward parsing.
 
-##### 2.) Clean VCFs.
+```Bash
+
+```
+
+##### 3.) Clean VCFs.
+The FunSeq ones can be skipped, they should already be clean.
 ```Bash
 for file in *.vcf; do
 	base=${file%%_*} ;
@@ -96,7 +105,7 @@ for file in *.vcf; do
 done
 ```
 
-##### 3.) Sort all VCFs.
+##### 4.) Sort all VCFs.
 ```Bash
 for f in *.vcf; do
    	base=${f%%_*} ;
@@ -104,7 +113,7 @@ for f in *.vcf; do
 done
 ```
 
-##### 4.) Zip and index each VCF.
+##### 5.) Zip and index each VCF.
 ```Bash
 for f in *.vcf; do
 	bgzip -c "$f" > "$f".gz;
@@ -115,13 +124,13 @@ for f in *.gz; do
 done
 ```
 
-##### 5.) Merge VCFs.
-First, those from VarScan with each other. Then those from BCFTools with each other. `-m none` means multiallelic records will be split to separate lines. Doing so is rather important, as if two samples have different variant alleles at the same position, only one is reported as having the variant if multiallelic records are allowed. Alternatively, setting `-m both` should create a multiallelic record, which may be wanted at times. No idea what the default is, BCFtools docs don't mention.
+##### 6.) Merge VCFs.
+Merge the samtools, VarScan, and FunSeq variants for each sample. The three files should be within a directory specific to the sample. `-m none` means multiallelic records will be split to separate lines. Doing so is rather important, as if two samples have different variant alleles at the same position, only one is reported as having the variant if multiallelic records are allowed. Alternatively, setting `-m both` should create a multiallelic record, which may be wanted at times. No idea what the default is, BCFtools docs don't mention.
 
 **For VarScan:**
 ```Bash
 module load bcftools-1.2
-bcftools merge -O v -m none --force-samples -i ADP:sum *.gz > merge.vcf
+bcftools merge -O v -m none --force-samples -i ADP:sum,DP:sum *.gz > merge.vcf
 module remove bcftools-1.2
 ```
 
@@ -132,30 +141,26 @@ bcftools merge -O v -m none -i DP:sum *.gz > merge.vcf
 module remove bcftools-1.2
 ```
 
-##### 6.) Fix headers.
+##### 7.) Fix headers.
 Text editor style because I was too lazy to write something.
 
-##### (Optional - only possible if ) 7.) Incorporate FunSeq output.
-FunSeq is used to annotate the non-coding variants from ChIP-Seq data. Some of the variants annotated by it lie within coding regions, so they can be added to this analysis
 
-7.) Concatenate the merged BCFTools and Varscan files. Be sure the column order is the same for both files.
-For duplicates, it will print the record with more samples called. If the variant is called in the same number of samples between both files, the variant from the BCFTools file will be printed. Adds an INFO field (BOTH) that specifies which file the variant was found in (BCF, VS, or BOTH).
-Python script (cat_merged_coding_vcfs.py):
-python3 cat_merged_coding_vcfs.py <merged_BCF.vcf> <merged_VarScan.vcf> <output.vcf>
-
-
-8.) Sort output file.
+##### 8.) Sort output file.
 `vcf-sort coding_VS_BCF_final.vcf > coding_VS_BCF_final.sorted.vcf`
 
 
-9.) Annotate with VEP. This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. 
-Be sure to use the GrCH37 cache (--port 3337) for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems. 
-
+##### 9.) Annotate with VEP. 
+This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems. 
+```Bash
 perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i coding_VS_BCF_final.vcf -o coding_VS_BCF_final_annotated.vcf
+```
 
+Can do whatever with it at this point. I intersected with some TF data from ENCODE.
 
-10.) Intersect with GM TF ChIP-Seq data.
+##### 10.) Intersect with GM TF ChIP-Seq data.
+```Bash
 bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/Final_Results/coding_VS_BCF_final_annotated.vcf -b GM12878_TF151_names_final.bed > Coding_variants_GM_ChIP_TFs_isec.bed
+```
 
 ---
 
@@ -299,12 +304,13 @@ In this example, 0000.vcf will be records unique to first provided file. 0001.vc
 ##### 12.) Count lines for each file, ignoring the headers. Do whatever with that information. Venn diagrams or something.
 `grep -v '#' -c file.vcf `
 
-
+---
 
 ### To figure out insert sizes for PINDEL
-Our samples have an average/median insert size of 200 bp, though the histograms look more like majority are 150 bp.
+PINDEL is used to detect complex structural variations, but it's not really meant to be used with RNA-seq data. Regardless, you need to know the insert sizes for your samples if you want to try to run it. This script will do that, though I never really did anything else with PINDEL. Our samples have an average/median insert size of 200 bp, though the histograms look more like majority are 150 bp.
 
-Bash script(get_insert_sizes.sh):
+**Bash script(get_insert_sizes.sh):**
+```Bash
 #!/bin/sh
 
 # give the job a name to help keep track of running jobs (optional)
@@ -329,3 +335,4 @@ done
 
 module remove R
 module remove java
+```
