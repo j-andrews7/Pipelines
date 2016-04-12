@@ -111,7 +111,7 @@ for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFS_wQVs/IND_
 	base=${PWD##*/}
 	mkdir "$base"_IND_VCFS
 	mv *vcf* "$base"_IND_VCFS
-	cd "$base"_IND_VCFs/
+	cd "$base"_IND_VCFS/
 	bcftools merge -O v -m none -i DP:sum,QV:avg,DP4:sum *.gz > ../"$base"_variants.vcf
 done
 
