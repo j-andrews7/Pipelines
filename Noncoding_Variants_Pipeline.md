@@ -90,10 +90,11 @@ for f in *.gz; do
 done
 ```
 
-##### 6.) Copy all VCF.gz and VCF.gz.tbi files for a given sample into an empty directory.  
+##### 6.) Organize.
+Copy all VCF.gz and VCF.gz.tbi files for a given sample into an empty directory.  
 
 ##### 7.) Merge the VCFs for each sample.
-This sums read depth (DP) and averages quality values (QV) for each file (histone mark) used for the sample.  
+This *sums* read depth (DP) and *averages* quality values (QV) for each file (histone mark) used for the sample.  
 **Bash script (merge_samp_vcfs.sh)**:
 ```Bash
 #!/bin/sh
@@ -101,13 +102,16 @@ This sums read depth (DP) and averages quality values (QV) for each file (histon
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N MERGE_VCFs
 #PBS -m e
-#PBS -l nodes=1:ppn=1,walltime=4:00:00,vmem=8gb
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=32gb
+#PBS -q old
 
 module load bcftools-1.2
-for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/VCFs_With_Quals/Ind_Samp_Merged/*/; do
+for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFS_wQVs/IND_SAMP_MERGED/*/; do
 	cd "$fold"
 	base=${PWD##*/}
-	cd ${PWD##*/}_Ind_VCFs/
+	mkdir "$base"_IND_VCFS
+	mv *vcf* "$base"_IND_VCFS
+	cd "$base"_IND_VCFs/
 	bcftools merge -O v -m none -i DP:sum,QV:avg,DP4:sum *.gz > ../"$base"_variants.vcf
 done
 
@@ -116,7 +120,6 @@ module remove bcftools-1.2
 
 ##### 8.) Fix header of the resulting merged VCF for each sample.
 Shortens the column headers to (sample_mark). This also fixes other header inconcistencies like case, extra underscores, etc.  
-
 **Python script (shorten_vcf_header.py)**:
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
@@ -160,7 +163,7 @@ We're only interested in those that occur in multiple data types (histone marks)
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
-for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/VCFs_With_Quals/Ind_Samp_Merged/*/; do
+for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFs_wQVs/IND_SAMP_MERGED/*/; do
 	cd "$fold"
 	python3 /scratch/jandrews/bin/filter_nc_vcf.py ${PWD##*/}_variants_filtered.vcf ${PWD##*/}_variants_filtered_multimark.vcf
 done
@@ -172,29 +175,29 @@ Will use these to determine those variants removed by FunSeq after annotation an
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
-for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/VCFs_With_Quals/Ind_Samp_Merged/*/; do
+for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFs_wQVs/IND_SAMP_MERGED/*/; do
 	cd "$fold"
-	bedops vcf2bed --do-not-split-alt-alleles < ${PWD##*/}_variants_filtered_multimark.vcf > ${PWD##*/}_variants_filtered_multimark.bed
+	vcf2bed --do-not-split-alt-alleles < ${PWD##*/}_variants_filtered_multimark.vcf > ${PWD##*/}_variants_filtered_multimark.bed
 done
 ```
 
-##### 12.) Annotate with [FunSeq2](http://funseq2.gersteinlab.org/analysis) using a MAF of 0.01 to remove known SNPs found in the 1000 genomes project. 
-Use BED output, as the VCF output isn't formatted properly. Upload all VCFs for the samples you want to compare at once. Click the green button to add additional files. As far as I know, there is no limit. Download the output files.
+##### 12.) Annotate with [FunSeq2](http://funseq2.gersteinlab.org/analysis) twice.
+USE a MAF of both 0.01 and 1 to remove known SNPs found in the 1000 genomes project. Even common SNPs may be interesting on a contextual basic, so using a MAF of 1 will keep those removed to a minimum (also useful for rolling those annotated as "coding" into the coding variant pipeline"). Use the **BED output option**, as the VCF output doesn't get formatted properly. Upload all the VCFs for the samples you want to compare at once. Click the green button to add additional files. As far as I know, there is no limit. Download the output files.
 
 
 ##### 13.) Parse the FunSeq output (Output.BED). 
-This will remove any variants that are said to affect coding sequences by FunSeq. It prints two files for each sample - one with the positions of the variants, the other with the full lines for the sample variants that meet the above requirements. To exclude those found in any of the other samples provided to FunSeq as well, use the `-uniq` option.
+This will filter any variants that are said to affect coding sequences by FunSeq and stick them in a **separate** file (which is useful if you want to actually include them in a coding variant analysis). It prints four files for each sample - one with the positions of the variants, the other with the full lines for the sample variants that meet the above requirements. To exclude those found in any of the other samples provided to FunSeq as well, use the `-uniq` option.
 
 **Python script (parse_funseq.py):**  
 `python3 /scratch/jandrews/bin/parse_funseq.py FLDL_filtered_multitype_funseq_variants.bed`
 
-  
+
   
 # Intersections with features of interest
 
-Intersect the resulting multimark, filtered variants for each sample with SEs, regular enhancers, and TSSs to determine percentage of SNVs for file found in each. Make sure to always sort and remove dups first, as it'll skew your results otherwise. Some of the MMPIDs and such may have duplicates due to the way they were acquired, hence why this is necessary.
+Intersect the resulting multimark, filtered variants file for each sample with SEs, regular enhancers, and TSSs to determine the percentage of SNVs for file found in each. Make sure to always sort and remove dups first, as it'll skew your results otherwise. Some of the MMPIDs and such may have duplicates due to the way they were acquired, hence why this is necessary.
 
-This same principle can be applied to intersections with whatever you want (TF motifs, regulatory elements, etc). Here I show intersections with **super enhancers, regular enhancers (FAIRE-positive MMPIDs that aren't located within SEs), TSSs, and TSSs located within SEs.**
+This same principle can be applied to intersections with whatever you want (TF motifs, regulatory elements, etc). Here I show intersections with **super enhancers, regular enhancers (FAIRE-positive, non-TSS MMPIDs that aren't located within SEs), TSSs, and TSSs located within SEs.**
 
 ##### 1.) Intersect TSSs with SEs to get those that lie within/outside the SEs. 
 The TSS file here can be found on the Payton Shared Drive in the master files folder (and probably about ten other places as well).
