@@ -1,7 +1,9 @@
 # CN Analysis 
 
-**Up to date as of 04/11/2016.**  
+**Up to date as of 04/12/2016.**  
 jared.andrews07@gmail.com
+
+> **This version differs from the "old" version because it treats the CNVs on a sample-by-sample basis in order to keep them as small as possible (i.e. it doesn't merge them together for a given cell type). **
 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data.
 
@@ -111,10 +113,21 @@ bedtools intersect -loj -a "$type"_DELS_MERGED.bed -b ../DGV.GoldStandard.July20
 | sort -k1,1 -k2,2n \
 | uniq - \
 | bedtools merge -c 4,7 -o distinct -i - > "$type"_DELS_MERGED_ANNOT.bed
+
+# Do for non-merged amps and such as well.
+bedtools intersect -loj -a "$type"_AMPS.bed -b ../DGV.GoldStandard.July2015.hg19.parsed.gff3 \
+| cut -f1-6,15 \
+| sort -k1,1 -k2,2n \
+| uniq - > "$type"_AMPS_ANNOT.bed
+
+bedtools intersect -loj -a "$type"_DELS.bed -b ../DGV.GoldStandard.July2015.hg19.parsed.gff3 \
+| cut -f1-6,15 \
+| sort -k1,1 -k2,2n \
+| uniq - > "$type"_DELS_ANNOT.bed
 ```
 
 ##### 10.) Filter for recurrence.
-This can easily be done by grepping for the `,` delimiter in our sample column.
+This can easily be done by grepping for the `,` delimiter in our sample column for the merged files.
 
 ```Bash
 # Variable to make switching between cell types easy.
@@ -216,7 +229,7 @@ for file in *.bed; do
   python /scratch/jandrews/bin/get_genes_in_range.py -size 0 -i "$file" -C 5 -S 6 -E 7 -g /scratch/jandrews/Ref/gencode.v19.annotation_sorted_genes_only.bed -o ${file%.*}_GENES.bed
 done
 
-# Original CNV/CNA files 
+# Original CNV/CNA files.
 for file in *.bed; do
   python /scratch/jandrews/bin/get_genes_in_range.py -size 0 -i "$file" -g /scratch/jandrews/Ref/gencode.v19.annotation_sorted_genes_only.bed -o ${file%.*}_GENES.bed
 done
