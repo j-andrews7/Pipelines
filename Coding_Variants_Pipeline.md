@@ -135,24 +135,25 @@ module remove bcftools-1.2
 ##### 6.) Fix headers.
 Text editor style because I was too lazy to write something.
 
-
-7.) Concatenate the merged BCFTools and Varscan files. Be sure the column order is the same for both files.
-For duplicates, it will print the record with more samples called. If the variant is called in the same number of samples between both files, the variant from the BCFTools file will be printed. Adds an INFO field (BOTH) that specifies which file the variant was found in (BCF, VS, or BOTH).
+##### 7.) Concatenate the merged BCFTools and Varscan files. 
+Be sure the column order is the same for both files. For duplicates, it will print the record with more samples called. If the variant is called in the same number of samples between both files, the variant from the BCFTools file will be printed. Adds an INFO field (BOTH) that specifies which file the variant was found in (BCF, VS, or BOTH).
 Python script (cat_merged_coding_vcfs.py):
 python3 cat_merged_coding_vcfs.py <merged_BCF.vcf> <merged_VarScan.vcf> <output.vcf>
 
 
-8.) Sort output file.
+##### 8.) Sort output file.
 `vcf-sort coding_VS_BCF_final.vcf > coding_VS_BCF_final.sorted.vcf`
 
 
-9.) Annotate with VEP. This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. 
-Be sure to use the GrCH37 cache (--port 3337) for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems. 
-
+##### 9.) Annotate with VEP. 
+This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
+```Bash
 perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i coding_VS_BCF_final.vcf -o coding_VS_BCF_final_annotated.vcf
+```
 
+Can do whatever with it at this point. I did an intersect with the GM TF ChIP-Seq data for kicks.
 
-10.) Intersect with GM TF ChIP-Seq data.
+##### 10.) Intersect with GM TF ChIP-Seq data.
 bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/Final_Results/coding_VS_BCF_final_annotated.vcf -b GM12878_TF151_names_final.bed > Coding_variants_GM_ChIP_TFs_isec.bed
 
 ---
