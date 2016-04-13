@@ -202,8 +202,10 @@ perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_eff
 
 **Fin.** Can do whatever with it at this point. I did an intersect with the GM TF ChIP-Seq data for kicks.
 
-#### 9.) Intersect with GM TF ChIP-Seq data.
+#### 9.) Intersect with GM TF ChIP-Seq data.  
+```Bash
 bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/Coding_Variants_Combined.annot.vcf -b GM12878_TF151_names_final.bed > Coding_Variants_Combined_Annot_GM_ChIP_TFs_isec.bed
+```
 
 ---
 
