@@ -22,12 +22,15 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
 - [VarScan2](http://dkoboldt.github.io/varscan/)
+- [GATK](https://www.broadinstitute.org/gatk/download/)
+- [Picard Tools](http://broadinstitute.github.io/picard/)
 
 
 ---
 
 ##### 1A.) Call variants with VarScan.
 samtools: mpileup piped to varscan to call variants with filters for read depth (5) and quality (15).
+
 **Bash script (var_call_varscan.sh):**
 ```Bash
 #!/bin/sh
@@ -141,21 +144,65 @@ Be sure the column order is the same for both files. For duplicates, it will pri
 **Python script (cat_merged_coding_vcfs.py):**
 `python3 cat_merged_coding_vcfs.py <merged_BCF.vcf> <merged_VarScan.vcf> <output.vcf>`
 
+##### 7.) Combine the BCFTools and VarScan files.
+This step was an **enormous** hassle to figure out.
 
-##### 8.) Sort output file.
-`vcf-sort coding_VS_BCF_final.vcf > coding_VS_BCF_final.sorted.vcf`
-
-
-##### 9.) Annotate with VEP. 
-This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
+**i. Create a sequence dict for reference genome**  
+This has to be done for GATK/Picard tools to work properly. Downloading the [bundle](ftp://ftp.broadinstitute.org/bundle/2.8/) for your genome of interest might be easier than doing this really.  
+**Bash script (create_ref_dict.sh):**
 ```Bash
-perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i coding_VS_BCF_final.vcf -o coding_VS_BCF_final_annotated.vcf
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N CREATE_REF_DICT
+#PBS -m e
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=36gb
+#PBS -q old
+
+module load java
+java -jar /scratch/jandrews/bin/picard-tools-2.2.1/picard.jar CreateSequenceDictionary R= /scratch/jandrews/Ref/hg19.fa O= /scratch/jandrews/Ref/hg19.dict
+module remove java
 ```
 
-Can do whatever with it at this point. I did an intersect with the GM TF ChIP-Seq data for kicks.
+**ii. Sort VCFs to same order as reference genome.**  
+I still don't get why the tools can't figure this out on their own, but again, a necessity.  
 
-##### 10.) Intersect with GM TF ChIP-Seq data.
-bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/Final_Results/coding_VS_BCF_final_annotated.vcf -b GM12878_TF151_names_final.bed > Coding_variants_GM_ChIP_TFs_isec.bed
+```Bash
+perl /scratch/jandrews/bin/vcfsorter.pl /scratch/jandrews/Ref/hg19.dict merge_vs.vcf > merge_vs.sorted.vcf 2>STDERR
+perl /scratch/jandrews/bin/vcfsorter.pl /scratch/jandrews/Ref/hg19.dict merge_samtools.vcf > merge_samtools.sorted.vcf 2>STDERR
+```
+
+**iii. Combine the samtools and VarScan VCFs**  
+**Bash script (combine_merged_vcfs.sh):**
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N COMBINE_VCFs
+#PBS -m e
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=36gb
+#PBS -q old
+
+java -Xmx15g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.jar \
+        -T CombineVariants \
+        -R /scratch/jandrews/Ref/hg19.fa \
+        --variant:bcftools /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/merge_samtools.sorted.vcf  \
+        --variant:varscan /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/merge_vs.sorted.vcf \
+        -o /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/Coding_Variants_Combined.vcf \
+        -genotypeMergeOptions UNIQUIFY
+```
+
+
+##### 8.) Annotate with VEP. 
+This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
+```Bash
+perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i Coding_Variants_Combined.vcf -o Coding_Variants_Combined.annot.vcf
+```
+
+**Fin.** Can do whatever with it at this point. I did an intersect with the GM TF ChIP-Seq data for kicks.
+
+##### 9.) Intersect with GM TF ChIP-Seq data.
+bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/Coding_Variants_Combined.annot.vcf -b GM12878_TF151_names_final.bed > Coding_Variants_Combined_Annot_GM_ChIP_TFs_isec.bed
 
 ---
 
