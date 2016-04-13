@@ -1,6 +1,6 @@
 # Coding Variants Pipeline
 **Up to date as of 04/11/2016.**  
-Jared's imitation of Liv's Coding variant calling pipeline. This also began as a comparison between the samtools and varscan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
+This is an imitation of Liv's coding variant calling pipeline, albeit with some improvements to increase sensitivity (hypothetically). This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
 
@@ -134,6 +134,13 @@ module load bcftools-1.2
 bcftools merge -O v -m none -i DP:sum *.gz > merge.vcf
 module remove bcftools-1.2
 ```
+
+**TO DO - ROLL IN CODING VARIANTS FROM CHIP-SEQ DATA AFTER FUNSEQ ANNOTATION AROUND HERE.**
+General idea:
+- Parse FunSeq output to get coding variants for each sample.
+- Backwards intersect these with the ChIP-seq VCF for the given sample to get the genotype and other info that FunSeq utterly destroyed for each variant.
+- Take all the resulting VCFs and merge them, somewhat similar to the above commands.
+- Include this file in the combining steps below.
 
 ##### 6.) Fix headers.
 Text editor style because I was too lazy to write something.
