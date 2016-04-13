@@ -145,12 +145,6 @@ General idea:
 ##### 6.) Fix headers.
 Text editor style because I was too lazy to write something.
 
-##### 7.) Concatenate the merged BCFTools and Varscan files. 
-Be sure the column order is the same for both files. For duplicates, it will print the record with more samples called. If the variant is called in the same number of samples between both files, the variant from the BCFTools file will be printed. Adds an INFO field (BOTH) that specifies which file the variant was found in (BCF, VS, or BOTH).
-
-**Python script (cat_merged_coding_vcfs.py):**
-`python3 cat_merged_coding_vcfs.py <merged_BCF.vcf> <merged_VarScan.vcf> <output.vcf>`
-
 ##### 7.) Combine the BCFTools and VarScan files.
 This step was an **enormous** hassle to figure out.
 
