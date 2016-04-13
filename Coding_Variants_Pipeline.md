@@ -28,7 +28,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 ---
 
-##### 1A.) Call variants with VarScan.
+#### 1A.) Call variants with VarScan.
 samtools: mpileup piped to varscan to call variants with filters for read depth (5) and quality (15).
 
 **Bash script (var_call_varscan.sh):**
@@ -53,7 +53,7 @@ module remove samtools-1.2
 module remove bcftools-1.2
 ```
 
-##### 1B i.) Call variants with bcftools (samtools).
+#### 1B i.) Call variants with bcftools (samtools).
 **Bash script (var_call_bcf.sh):**
 ```Bash
 #!/bin/sh
@@ -76,7 +76,7 @@ module remove bcftools-1.2
 ```
 
 
-##### 1B ii.) 
+#### 1B ii.) 
 Filter the BCFtools VCFs for the same quality and read-depth that VarScan used.
 
 ```Bash
@@ -91,7 +91,7 @@ module remove bcftools-1.2
 At this point, I also did a comparison between the SNP arrays with these callers, which is explained [below](#comparison) after the rest of the pipeline. 
 
 
-##### 2.) Clean VCFs.
+#### 2.) Clean VCFs.
 ```Bash
 for file in *.vcf; do
 	base=${file%%_*} ;
@@ -99,7 +99,7 @@ for file in *.vcf; do
 done
 ```
 
-##### 3.) Sort all VCFs.
+#### 3.) Sort all VCFs.
 ```Bash
 for f in *.vcf; do
    	base=${f%%_*} ;
@@ -107,7 +107,7 @@ for f in *.vcf; do
 done
 ```
 
-##### 4.) Zip and index each VCF.
+#### 4.) Zip and index each VCF.
 ```Bash
 for f in *.vcf; do
 	bgzip -c "$f" > "$f".gz;
@@ -118,7 +118,7 @@ for f in *.gz; do
 done
 ```
 
-##### 5.) Merge VCFs.
+#### 5.) Merge VCFs.
 First, those from VarScan with each other. Then those from BCFTools with each other. `-m none` means multiallelic records will be split to separate lines. Doing so is rather important, as if two samples have different variant alleles at the same position, only one is reported as having the variant if multiallelic records are allowed. Alternatively, setting `-m both` should create a multiallelic record, which may be wanted at times. No idea what the default is, BCFtools docs don't mention.
 
 **For VarScan:**
@@ -142,10 +142,10 @@ General idea:
 - Take all the resulting VCFs and merge them, somewhat similar to the above commands.
 - Include this file in the combining steps below.
 
-##### 6.) Fix headers.
+#### 6.) Fix headers.
 Text editor style because I was too lazy to write something.
 
-##### 7.) Combine the BCFTools and VarScan files.
+#### 7.) Combine the BCFTools and VarScan files.
 This step was an **enormous** hassle to figure out.
 
 **i. Create a sequence dict for reference genome**  
@@ -194,7 +194,7 @@ java -Xmx15g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.ja
 ```
 
 
-##### 8.) Annotate with VEP. 
+#### 8.) Annotate with VEP. 
 This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
 ```Bash
 perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i Coding_Variants_Combined.vcf -o Coding_Variants_Combined.annot.vcf
@@ -202,7 +202,7 @@ perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_eff
 
 **Fin.** Can do whatever with it at this point. I did an intersect with the GM TF ChIP-Seq data for kicks.
 
-##### 9.) Intersect with GM TF ChIP-Seq data.
+#### 9.) Intersect with GM TF ChIP-Seq data.
 bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/Coding_Variants_Combined.annot.vcf -b GM12878_TF151_names_final.bed > Coding_Variants_Combined_Annot_GM_ChIP_TFs_isec.bed
 
 ---
@@ -212,7 +212,7 @@ I made the **mistake of assuming** the calls on the arrays (1,2,3,0 aka AA,AB,BB
 
 This picks up after step 1 of the initial variant calling as noted above.
 
-##### 2.) Parse SNP array.
+#### 2.) Parse SNP array.
 This will create VCFs for each sample column in the summary SNP array file. 
 **Bash script (parse_snp_array.sh):**
 ```Bash
@@ -228,7 +228,7 @@ source activate anaconda
 python3 /scratch/jandrews/bin/parse_snp_array.py /scratch/jandrews/Data/Variant_Calling/SNP_Arrays/GenomeWideSNP_6.na35.annot.csv /scratch/jandrews/Data/Variant_Calling/SNP_Arrays/LYMPHOMASNP77_GTYPE_2014.txt
 ```
 
-##### 3.) Scrub files.
+#### 3.) Scrub files.
 Remove any potential garbage chromosomes from both array VCFs and those from samtools/varscan.
 `(sed '/_g/d' file.vcf | sed '/chrM/d' | sed '/chrY/d') > output.vcf`
 
@@ -243,7 +243,7 @@ done
 ```
 
 
-##### 4A.) Filter variants.
+#### 4A.) Filter variants.
 Figure out which variants on the SNP array contain sufficient read depth (>=5) for each sample to actually be called by samtools or varscan. 
 	
 First, get read depth at each SNP array variant for each sample.
@@ -273,7 +273,7 @@ wait
 module remove bedtools2
 ```
 
-##### 4B.) Actually filter for read-depth. 
+#### 4B.) Actually filter for read-depth. 
 Change `$11` as needed (ie. if read count column is column 9, change to `$9`)
 ```Bash
 for file in *.vcf; do 
@@ -282,7 +282,7 @@ for file in *.vcf; do
 done
 ```
 
-##### 5.) Sort each filtered SNP array VCF.
+#### 5.) Sort each filtered SNP array VCF.
 ```Bash
 for f in *.vcf; do
 	base=${f%%.*} ;
@@ -290,7 +290,7 @@ for f in *.vcf; do
 done
 ```
 
-##### 6.) Remove last column (counts) from filtered SNP array VCFs.
+#### 6.) Remove last column (counts) from filtered SNP array VCFs.
 ```Bash
 for f in *.vcf; do
 	base=${f%%.*} ;
@@ -298,7 +298,7 @@ for f in *.vcf; do
 done
 ```
 
-##### 7.) Re-add header.
+#### 7.) Re-add header.
 Have to do this for each filtered SNP array, as bedtools multicov removes it.
 ```Bash
 for f in *.vcf; do
@@ -312,25 +312,25 @@ for f in *.vcf; do
 done
 ```
 
-##### 8.) Zip each VCF.  
+#### 8.) Zip each VCF.  
 ```Bash
 for f in *.vcf; do
 	bgzip -c "$f" > "$f".gz ;
 done
 ```
 
-##### 9. Index each VCF.  
+#### 9. Index each VCF.  
 ```Bash
 for f in *.gz; do
 	tabix -p vcf "$f" ;
 done
 ```
 
-##### 10.) Organize.  
+#### 10.) Organize.  
 Create two directories - one for array/BCFtools intersections, one for array/VarScan intersections. Copy files into each as appropriate.
 
 
-##### 11.) Intersect files for each sample.
+#### 11.) Intersect files for each sample.
 (checks by position only - `-c all` option does this.)
 ```Bash
 module load bcftools-1.2
