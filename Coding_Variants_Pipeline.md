@@ -1,5 +1,5 @@
 # Coding Variants Pipeline
-**Up to date as of 04/11/2016.**  
+**Up to date as of 04/13/2016.**  
 This is an imitation of Liv's coding variant calling pipeline, albeit with some improvements to increase sensitivity (hypothetically). This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
