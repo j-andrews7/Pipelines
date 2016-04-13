@@ -149,7 +149,7 @@ Text editor style because I was too lazy to write something.
 This step was an **enormous** hassle to figure out.
 
 **i. Create a sequence dict for reference genome**  
-This has to be done for GATK/Picard tools to work properly. Downloading the [bundle](ftp://ftp.broadinstitute.org/bundle/2.8/) for your genome of interest might be easier than doing this really.  
+This has to be done for GATK/Picard tools to work properly.   
 **Bash script (create_ref_dict.sh):**
 ```Bash
 #!/bin/sh
