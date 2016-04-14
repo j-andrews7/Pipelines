@@ -1,9 +1,9 @@
 # CN Analysis 
 
-**Up to date as of 04/12/2016.**  
+**Up to date as of 04/14/2016.**  
 jared.andrews07@gmail.com
 
-> **This version differs from the "old" version because it treats the CNVs on a sample-by-sample basis for the MMPID analysis in order to keep them as small as possible (i.e. it doesn't merge them together for a given cell type). **
+> **This version differs from the "old" version because it treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). **
 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data.
 
