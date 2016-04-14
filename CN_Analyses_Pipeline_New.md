@@ -3,7 +3,7 @@
 **Up to date as of 04/12/2016.**  
 jared.andrews07@gmail.com
 
-> **This version differs from the "old" version because it treats the CNVs on a sample-by-sample basis in order to keep them as small as possible (i.e. it doesn't merge them together for a given cell type). **
+> **This version differs from the "old" version because it treats the CNVs on a sample-by-sample basis for the MMPID analysis in order to keep them as small as possible (i.e. it doesn't merge them together for a given cell type). **
 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data.
 
@@ -280,7 +280,8 @@ sed '/DL140/d' DL_circuits_May13_2014.txt | awk -v OFS='\t' '{print $2, $3, $4, 
 cut -f1-4,10-16 FL_circuits_May2014.txt | awk -v OFS='\t' '{print $2, $3, $4, $1, $5, $6, $7, $8, $9, $10, $11}' > FL_circuits_May2014.final.txt
 ```
 
-There was also a mixup with the expression of one sample - DL3A538, as it's expression was listed for DL3B538 (not an actual sample) on a different line. As such, this had to be remedied with a one-off script that grabbed the expression value for each gene for DL3B538 and stuck it in the line for DL3A538.
+There was also a mixup with the expression of one sample - DL3A538, as it's expression was listed for DL3B538 (not an actual sample) on a different line. As such, this had to be remedied with a one-off script that grabbed the expression value for each gene for DL3B538 and stuck it in the line for DL3A538.  
+**Python script (fix_dl_circuit_expression.py):**
 
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
@@ -289,7 +290,15 @@ source activate anaconda
 python /scratch/jandrews/bin/fix_dl_circuit_expression.py DL_circuits_May13_2014.processed.txt DL_circuits_May13_2014.final.txt
 ```
 
-##### 2.) Intersect with AMPS/DELS tables for the appropriate cell type.
+##### 2.) Condense the AMPS/DELS.
+This will fix lines being repeated if they overlapped multiple common CNV annotations (line for gain, another for loss, etc, will all be condensed into one).  
+**Python script (condense_cnv_annot_by_samp.py):
+
+```Bash
+python /scratch/jandrews/bin/condense_cnv_annot_by_samp.py -i DL_AMPS_ANNOT_GENES.bed -o DL_AMPS_ANNOT_GENES_CONDENSED.bed
+```
+
+##### 3.) Intersect with AMPS/DELS tables for the appropriate cell type.
 Copy and paste the header from the circuit table somewhere and then remove it or bedtools will fight you. We'll have to add headers after this anyway. 
 
 ```Bash
@@ -297,26 +306,27 @@ Copy and paste the header from the circuit table somewhere and then remove it or
 sed -i -e "1d" DL_circuits_May13_2014.final.txt
 
 module load bedtools2
-bedtools intersect -wa -wb -a DL_circuits_May13_2014.final.bed -b ../DL_CNVs/DL_AMPS_MERGED_ANNOT_GENES.bed > DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed
-bedtools intersect -wa -wb -a DL_circuits_May13_2014.final.bed -b ../DL_CNVs/DL_DELS_MERGED_ANNOT_GENES.bed > DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES.bed
+bedtools intersect -wa -wb -a DL_circuits_May13_2014.final.bed -b ../DL_CNVs/DL_AMPS_ANNOT_GENES.bed > DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed
+bedtools intersect -wa -wb -a DL_circuits_May13_2014.final.bed -b ../DL_CNVs/DL_DELS_ANNOT_GENES.bed > DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES.bed
 
-bedtools intersect -wa -wb -a FL_circuits_May2014.final.bed -b ../FL_CNVs/FL_AMPS_MERGED_ANNOT_GENES.bed > FL_CIRCUIT_MMPIDs_IN_FL_AMPS_MERGED_ANNOT_GENES.bed
-bedtools intersect -wa -wb -a FL_circuits_May2014.final.bed -b ../FL_CNVs/FL_DELS_MERGED_ANNOT_GENES.bed > FL_CIRCUIT_MMPIDs_IN_FL_DELS_MERGED_ANNOT_GENES.bed
+bedtools intersect -wa -wb -a FL_circuits_May2014.final.bed -b ../FL_CNVs/FL_AMPS_ANNOT_GENES.bed > FL_CIRCUIT_MMPIDs_IN_FL_AMPS_MERGED_ANNOT_GENES.bed
+bedtools intersect -wa -wb -a FL_circuits_May2014.final.bed -b ../FL_CNVs/FL_DELS_ANNOT_GENES.bed > FL_CIRCUIT_MMPIDs_IN_FL_DELS_MERGED_ANNOT_GENES.bed
+module remove bedtools2
 ```
 
-##### 3.) Add headers.
+##### 4.) Add headers.
 Files are quite complicated at this point, so now we add headers since we should be done intersecting.
 
 ```Bash
-{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed; } > DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES_HEADER.bed
+{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED.bed; } > DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED_HEADER.bed
 
 # File names are long enough as is. Try to keep them short.
-mv DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES_HEADER.bed DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed
-mv DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES_HEADER.bed DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES.bed
+mv DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED_HEADER.bed DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED.bed
+mv DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED_HEADER.bed DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED.bed
 ```
 
-##### 4.) Parse for potentially interesting MMPIDs.
-This script matches samples between the MMPID and CNVs and then checks if the sample meets the FC cutoffs for either H3AC or K27AC at the MMPID that we'd expect with a deletion or amplification as specified. With the `-r` option, it also only prints MMPIDs that meet the cutoffs recurently, i.e., in at least two samples. It removes lines with no expression values for the gene.
+##### 5.) Parse for potentially interesting MMPIDs.
+This script matches samples between the MMPID and CNVs and then checks if the sample meets the FC cutoffs for either H3AC or K27AC at the MMPID that we'd expect with a deletion or amplification as specified. With the `-r` option, it also only prints MMPIDs that meet the cutoffs recurrently, i.e., in at least two samples. It removes lines with no expression values for the gene.
 
 ```
 Tries to match MMPIDs that hit the FC cutoff specified in the circuit table for a given sample to a CNV occurring in that sample as well.
