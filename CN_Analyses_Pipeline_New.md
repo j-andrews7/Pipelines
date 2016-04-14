@@ -28,22 +28,22 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 ---
 
-##### 1.) Set up environment.
+#### 1.) Set up environment.
 Download the [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1) program and the na32 annotation db. You'll have to set a library folder when opening the program for the first time - this is where you should stick annotation/databse files. Download the na32 library from within the program and stick it in your library folder, along with the na32 CN annotation file from Affy's site. Again, this is all for the **SNP 6 arrays**, and I used the older annotations (na32 instead of na35) for continuity with other analyses. 
 
 
-##### 2.) Conglomerate files.
+#### 2.) Conglomerate files.
 Take all cel & arr files you want to use and stick them in a folder. Load the data into the program. Run the Copy Number/LOH analysis, it'll generate a CNCHP file for each sample. Go to Workspace->Copy Number/LOH Analysis and export them, making sure to include the Log2 ratio for each marker (along with it's chromosome), marker ID, and position.
 
 
-##### 3.) Run the Segment Reporting Tool. 
+#### 3.) Run the Segment Reporting Tool. 
 Be sure to click the option to generate a summary file, which will have the segments for each sample. 
 
 
-##### 4.) Scrub the summary file.
+#### 4.) Scrub the summary file.
 The first column of the summary file will have the array ID, which should be replaced with the sample name. In addition, the `#` header lines can be removed and the only columns that need to be kept are those for `sample, Chr, Start_Linear_Position, End_Linear_Position, #Markers, Copy_Number_State`. `awk/sed/cut/paste` make swapping the columns around pretty easy.
 
-##### 5.) Convert to bed-like format.
+#### 5.) Convert to bed-like format.
 Just need to order columns - `Chr, Start, End, Sample, #Markers, Copy_Number_State` and add `chr` to first column. This also removes segments with fewer than 5 markers in them if they haven't been removed already.
 
 ```Bash
@@ -55,7 +55,7 @@ print $0
 }' > Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed
 ```
 
-##### 6.) Grab segments specific to each cell-type.
+#### 6.) Grab segments specific to each cell-type.
 Go ahead and delete those on the Y chromosome as well.
 ```Bash
 grep 'DL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY/d' > DL_CNVs.bed
@@ -63,7 +63,7 @@ grep 'FL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY/d
 grep 'CLL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY/d' > CLL_CNVs.bed
 ```
 
-##### 7.) Break each CNV file into amps/dels
+#### 7.) Break each CNV file into amps/dels
 Before we merge the CNVs for each cell-type, need to break the amps and dels into separate, sorted files.
 
 **Amplifications**
@@ -82,7 +82,7 @@ print $0
 }' DL_CNVs.bed | sort -k1,1 -k2,2n > DL_DELS.bed
 ```
 
-##### 8.) Merge the amps/dels for each cell-type.
+#### 8.) Merge the amps/dels for each cell-type.
 This also creates a list of the samples in which each CNV is found as well as the actual copy number of the regions merged, which can *sometimes* be helpful for determining if there are any high-level samples (multiple copy gain/loss) for that CNV, though you can't determine which sample it's necessarily in without going back and looking in each. It will pull the max marker numbers for the merged region as well.
 
 ```Bash
@@ -90,7 +90,7 @@ module load bedtools2
 mergeBed -c 4,5,6 -o distinct,max,collapse -i CLL_AMPS.bed > CLL_AMPS_MERGED.bed
 ```
 
-##### 9.) Annotate known CNVs.
+#### 9.) Annotate known CNVs.
 While CNAs unique to the samples are likely to be most interesting, a CNV found in other cells and cancers may still have a functional impact. As such, we **don't remove common CNVs**, rather we simply make a note that the CNV is found elsewhere. There are many lists of common CNVs (HapMap, DGV, and a [2015 Nature Genetics Review](http://www.nature.com/nrg/journal/v16/n3/full/nrg3871.html) among them). Here, I use the [DGV gold standard list](http://dgv.tcag.ca/dgv/app/downloads?ref=) after some funky parsing to remove extraneous info. 
 
 
@@ -126,7 +126,7 @@ bedtools intersect -loj -a "$type"_DELS.bed -b ../DGV.GoldStandard.July2015.hg19
 | uniq - > "$type"_DELS_ANNOT.bed
 ```
 
-##### 10.) Filter for recurrence.
+#### 10.) Filter for recurrence.
 This can easily be done by grepping for the `,` delimiter in our sample column for the merged files.
 
 ```Bash
@@ -136,7 +136,7 @@ cat "$type"_AMPS_MERGED_ANNOT.bed | python /scratch/jandrews/bin/get_recurrent_C
 cat "$type"_DELS_MERGED_ANNOT.bed | python /scratch/jandrews/bin/get_recurrent_CNAs.py > RECURRENT_"$type"_DELS_MERGED_ANNOT.bed
 ```
 
-##### 11.) Filter for true CNAs.
+#### 11.) Filter for true CNAs.
 Useful to do this for both those that are recurrent and those that are not. The period must be escaped as linux will otherwise consider '.' as any character. I like to move the different cell types into their own folders at this point as well.
 
 ```Bash
@@ -148,7 +148,7 @@ grep '\.' RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > RECURRENT_"$type"_DELS_MERGE
 ```
 
 
-##### 12.) Intersect with SEs and Enhancers.
+#### 12.) Intersect with SEs and Enhancers.
 Do every intersect you could ever really want. 
 
 ```Bash
@@ -212,7 +212,7 @@ bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIV
 bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_IN_RECURRENT_"$type"_DELS_CNA.bed
 ```
 
-##### 13.) Get overlapping genes in CNVs/CNAs.
+#### 13.) Get overlapping genes in CNVs/CNAs.
 Now we grab the genes in each CNV/CNA in each of these files. You can use whatever annotations you want for this, I used only the genes in Gencode v19 (includes LINCs). The `-size` option allows you to add wings to your input file to get genes within a certain range of a feature, but I only want those that directly overlap. Could also go back and run this script on the original CNV/CNA files for each cell type if wanted. Be sure to set the chromosome, start, and end column positions properly. 
 
 ```Bash
@@ -235,7 +235,7 @@ for file in *.bed; do
 done
 ```
 
-##### 14.) Get SE target gene(s).
+#### 14.) Get SE target gene(s).
 Now we can also get the target genes for the SEs using the same script. This time I add 100 kb wings to the start/stop of the SE though, as a SE's targets genes may be quite a ways away. Will then move the SE_Genes column to immediately after the SE positions within the file.
 
 ```Bash
@@ -249,7 +249,7 @@ for file in *GENES.bed; do
 done
 ```
 
-##### 15.) Rank CNVs containing SEs by recurrence.
+#### 15.) Rank CNVs containing SEs by recurrence.
 This will rank the amps/dels containing SEs by recurrence of the CNV. 
 
 ```Bash
@@ -267,7 +267,7 @@ At this point, you should have more or less whatever you need to do whatever you
 ## Integrating circuit table data for MMPIDs
 As the circuit tables for FL and DL contain fold-change values for FAIRE, H3AC, and K27AC for each sample at each MMPID relative to the average of the CCs, they can be useful for us to determine which MMPIDs are actually affected by the CNVs.
 
-##### 1.) Process the circuit tables.
+#### 1.) Process the circuit tables.
 The circuit tables need a bit of work before they can be used directly (though I left these lying around somewhere after parsing them, so searching around might save you some trouble). The **DL table** erroneously has a sample called DL140, which is actually a CLL sample and needs to be removed. In addition, the MMPIDs are in the first column, but we want a psuedo-bed format for intersecting so we move them to the 4th column.
 
 The **FL table** has some extraneous columns we don't need as well as having the MMPID in the first column.
@@ -290,7 +290,7 @@ source activate anaconda
 python /scratch/jandrews/bin/fix_dl_circuit_expression.py DL_circuits_May13_2014.processed.txt DL_circuits_May13_2014.final.txt
 ```
 
-##### 2.) Condense the AMPS/DELS.
+#### 2.) Condense the AMPS/DELS.
 This will fix lines being repeated if they overlapped multiple common CNV annotations (line for gain, another for loss, etc, will all be condensed into one).  
 **Python script (condense_cnv_annot_by_samp.py):
 
@@ -298,7 +298,7 @@ This will fix lines being repeated if they overlapped multiple common CNV annota
 python /scratch/jandrews/bin/condense_cnv_annot_by_samp.py -i DL_AMPS_ANNOT_GENES.bed -o DL_AMPS_ANNOT_GENES_CONDENSED.bed
 ```
 
-##### 3.) Intersect with AMPS/DELS tables for the appropriate cell type.
+#### 3.) Intersect with AMPS/DELS tables for the appropriate cell type.
 Copy and paste the header from the circuit table somewhere and then remove it or bedtools will fight you. We'll have to add headers after this anyway. 
 
 ```Bash
@@ -314,7 +314,7 @@ bedtools intersect -wa -wb -a FL_circuits_May2014.final.bed -b ../FL_CNVs/FL_DEL
 module remove bedtools2
 ```
 
-##### 4.) Add headers.
+#### 4.) Add headers.
 Files are quite complicated at this point, so now we add headers since we should be done intersecting.
 
 ```Bash
@@ -325,7 +325,7 @@ mv DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED_HEADER.bed DL_CIRCUIT_MMPI
 mv DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED_HEADER.bed DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED.bed
 ```
 
-##### 5.) Parse for potentially interesting MMPIDs.
+#### 5.) Parse for potentially interesting MMPIDs.
 This script matches samples between the MMPID and CNVs and then checks if the sample meets the FC cutoffs for either H3AC or K27AC at the MMPID that we'd expect with a deletion or amplification as specified. With the `-r` option, it also only prints MMPIDs that meet the cutoffs recurrently, i.e., in at least two samples. It removes lines with no expression values for the gene.
 
 ```
@@ -346,12 +346,12 @@ Args:
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES.bed -o DL_CIRCUIT_MMPIDs_IN_DL_AMPS_MERGED_ANNOT_GENES_2FC.bed -cut 2 -r
+python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED.bed -o DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED_2FC.bed -cut 2 -r
 
-python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES.bed -o DL_CIRCUIT_MMPIDs_IN_DL_DELS_MERGED_ANNOT_GENES_2FC.bed -cut 2 -r
+python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED.bed -o DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED_2FC.bed -cut 2 -r
 ```
 
-##### 5.) Remove non-FAIRE positive MMPIDs.
+#### 6.) Remove non-FAIRE positive MMPIDs.
 Pretty much any enhancer has a FAIRE peak in it, so we can remove those that don't. May have to remove the header and add it back after.
 
 ```Bash
@@ -359,18 +359,18 @@ module load bedtools2
 
 type=DL
 # Remove header.
-sed -i -e "1d" RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed
-sed -i -e "1d" RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed
+sed -i -e "1d" RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC.bed
+sed -i -e "1d" RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC.bed
 
 # Intersect
-bedtools intersect -wa -a RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed -b MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed
-bedtools intersect -wa -a RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed -b MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed
+bedtools intersect -wa -a RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_2FC.bed -b MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC.bed
+bedtools intersect -wa -a RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_2FC.bed -b MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC.bed
 
 # Add back header.
-{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed; } > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC_HEADER.bed
-{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed; } > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC_HEADER.bed
+{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC.bed; } > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC_HEADER.bed
+{ printf 'MMPID_CHR\tMMPID_ST\tMMPID_END\tMMPID\tSAMPLE\tFC_X\tFC_H3AC\tFC_K27AC\tABS_K4\tGENE\tEXPRESSION\tCNV_CHR\tCNV_ST\tCNV_END\tCNV_SAMPLES\tANNOT\tCNV_GENES\n'; cat RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC.bed; } > RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC_HEADER.bed
 
 # File names are long enough as is. Try to keep them short.
-mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_MERGED_ANNOT_GENES_2FC.bed
-mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_MERGED_ANNOT_GENES_2FC.bed
+mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC.bed
+mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC.bed
 ```
