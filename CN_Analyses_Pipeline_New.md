@@ -292,7 +292,7 @@ python /scratch/jandrews/bin/fix_dl_circuit_expression.py DL_circuits_May13_2014
 
 #### 2.) Condense the AMPS/DELS.
 This will fix lines being repeated if they overlapped multiple common CNV annotations (line for gain, another for loss, etc, will all be condensed into one).  
-**Python script (condense_cnv_annot_by_samp.py):
+**Python script (condense_cnv_annot_by_samp.py):**
 
 ```Bash
 python /scratch/jandrews/bin/condense_cnv_annot_by_samp.py -i DL_AMPS_ANNOT_GENES.bed -o DL_AMPS_ANNOT_GENES_CONDENSED.bed
@@ -335,10 +335,10 @@ Usage: python match_FC_to_CNVs.py -t <amp or del> -i <input.bed> -o <output.bed>
 
 Args:
 	(required) -t <amp or del> = Type of CNVs that are in the file. 
-  (required) -i <input.bed> = Name of locus list file to process.
-  (required) -o <output.bed> = Name of output file to be created.
-  (optional) -cut <value> = Linear FC magnitude cutoff for H3AC/K27AC used to filter out uninteresting MMPIDs (default=2). Results must meet cutoff to be included.
-  (optional) -r = If included, only includes MMPIDs that are recurrent after applying the cutoff filters and such.
+	(required) -i <input.bed> = Name of locus list file to process.
+	(required) -o <output.bed> = Name of output file to be created.
+	(optional) -cut <value> = Linear FC magnitude cutoff for H3AC/K27AC used to filter out uninteresting MMPIDs (default=2). Results must meet cutoff to be included.
+	(optional) -r = If included, only includes MMPIDs that are recurrent after applying the cutoff filters and such.
 ```
 
 **Actual use:**
