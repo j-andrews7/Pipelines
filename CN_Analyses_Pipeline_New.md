@@ -3,11 +3,9 @@
 **Up to date as of 04/14/2016.**  
 jared.andrews07@gmail.com
 
----
+> **This version differs from the "old" version because it treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the "golden ticket" CNVs by searching for minimal recurrent regions. Also gets into creating some figures to actually show effects of the CNVs on the activity of SEs and MMPIDs.**
 
-> This version __differs from the "old" version__ because it treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the __*golden ticket*__ by looking for __minimal recurrent regions__ between samples.
-
-The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data.
+The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data. As with most things, this started off relatively simple and grew to become more complicated as results were viewed and additional approaches tried.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
 
@@ -28,7 +26,16 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - Also available on the CHPC cluster.
 - [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1)
 
+**Sections:**
+-[Calling CNVs from SNP6 Arrays](name=#segment)
+-[Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
+-[Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
+
 ---
+
+## <a name="segment"></a>CNV Calling
+This section focuses on generating the CNVs for each sample that was run on an Affymetrix SNP6 array.
+
 
 #### 1.) Set up environment.
 Download the [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1) program and the na32 annotation db. You'll have to set a library folder when opening the program for the first time - this is where you should stick annotation/databse files. Download the na32 library from within the program and stick it in your library folder, along with the na32 CN annotation file from Affy's site. Again, this is all for the **SNP 6 arrays**, and I used the older annotations (na32 instead of na35) for continuity with other analyses. 
@@ -149,72 +156,78 @@ grep '\.' "$type"_DELS_MERGED_ANNOT.bed > "$type"_DELS_MERGED_ANNOT_CNA.bed
 grep '\.' RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed
 ```
 
+---
 
-#### 12.) Intersect with SEs and Enhancers.
+## <a name="SEsCellType"></a>Integrate SE Data for CNVs by Cell Type
+This utilizes the files generated in the above section to look at the SEs located in CNVs on a cell-type basis.
+
+#### 1.) Intersect CNVs with SEs and Enhancers.
 Do every intersect you could ever really want. 
 
 ```Bash
-module load bedtools2
-bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b All_SEs.bed > MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed
-bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b CLL_SEs.bed > MMPID_NonTSS_FAIREPOS_OUTSIDE_CLL_SEs.bed
-
 # Use a variable to make it easy to switch cell types.
 type=CLL
 
+# Get the MMPIDs that lie outside the SEs.
+module load bedtools2
+bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b All_SEs.bed > MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed
+bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_SEs.bed > MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed
+
+
 # Intersect with the amps & dels.
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/ALL_SEs_IN_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/"$type"_SEs_IN_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/ALL_SEs_IN_RECURRENT_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/"$type"_SEs_IN_RECURRENT_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/ALL_SEs_IN_"$type"_DELS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/"$type"_SEs_IN_"$type"_DELS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/ALL_SEs_IN_RECURRENT_"$type"_DELS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/"$type"_SEs_IN_RECURRENT_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_RECURRENT_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_RECURRENT_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_RECURRENT_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_RECURRENT_"$type"_DELS.bed
 
 # Then the CNAs.
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/ALL_SEs_IN_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/"$type"_SEs_IN_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/ALL_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/"$type"_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/ALL_SEs_IN_"$type"_DELS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/"$type"_SEs_IN_"$type"_DELS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/ALL_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/"$type"_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/All_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/ALL_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/"$type"_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
 
 # Then MMPIDs outside the SEs and in the amps/dels.
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_DELS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_DELS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_DELS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_DELS.bed
 
 # Then MMPIDs outside the SEs and in the CNAs.
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_DELS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_DELS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_ALL_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_ALL_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIREPOS_OUTSIDE_"$type"_SEs.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_OUTSIDE_"$type"_SEs_IN_RECURRENT_"$type"_DELS_CNA.bed
 
 # Then MMPIDs in the amps/dels.
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_IN_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_IN_RECURRENT_"$type"_AMPS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_IN_"$type"_DELS.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/MMPIDs_IN_RECURRENT_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_RECURRENT_"$type"_AMPS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_"$type"_DELS.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_RECURRENT_"$type"_DELS.bed
 
 # Then MMPIDs and in the CNAs.
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_IN_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_IN_RECURRENT_"$type"_AMPS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_IN_"$type"_DELS_CNA.bed
-bedtools intersect -wa -wb -a ./INTERSECTS/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/MMPIDs_IN_RECURRENT_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_AMPS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_RECURRENT_"$type"_AMPS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b "$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_"$type"_DELS_CNA.bed
+bedtools intersect -wa -wb -a ./INTERSECTS/FLDL_CCCB_ONLY/SEs_MMPIDs/MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b RECURRENT_"$type"_DELS_MERGED_ANNOT_CNA.bed > ./INTERSECTS/FLDL_CCCB_ONLY/MMPIDs_IN_RECURRENT_"$type"_DELS_CNA.bed
 ```
 
-#### 13.) Get overlapping genes in CNVs/CNAs.
+#### 2.) Get overlapping genes in CNVs/CNAs.
 Now we grab the genes in each CNV/CNA in each of these files. You can use whatever annotations you want for this, I used only the genes in Gencode v19 (includes LINCs). The `-size` option allows you to add wings to your input file to get genes within a certain range of a feature, but I only want those that directly overlap. Could also go back and run this script on the original CNV/CNA files for each cell type if wanted. Be sure to set the chromosome, start, and end column positions properly. 
 
 ```Bash
@@ -237,7 +250,7 @@ for file in *.bed; do
 done
 ```
 
-#### 14.) Get SE target gene(s).
+#### 3.) Get SE target gene(s).
 Now we can also get the target genes for the SEs using the same script. This time I add 100 kb wings to the start/stop of the SE though, as a SE's targets genes may be quite a ways away. Will then move the SE_Genes column to immediately after the SE positions within the file.
 
 ```Bash
@@ -251,7 +264,7 @@ for file in *GENES.bed; do
 done
 ```
 
-#### 15.) Rank CNVs containing SEs by recurrence.
+#### 4.) Rank CNVs containing SEs by recurrence.
 This will rank the amps/dels containing SEs by recurrence of the CNV. 
 
 ```Bash
@@ -264,9 +277,40 @@ python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py "$type"_SEs_IN_"$type"_A
 python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py "$type"_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_"$type"_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed 
 ```
 
-At this point, you should have more or less whatever you need to do whatever you want. **Adding headers** before doing anything else with them is probably a good idea though.
+At this point, you should have more or less whatever you need to do whatever you want. **Adding headers** before doing anything else with them is probably a good idea though. I like to compare the SE genes to a list of important B cell genes to see if anything really pops out. 
 
-## Integrating circuit table data for MMPIDs
+#### 5.) Compare SE genes to gene list.  
+The gene list is just a text file with a gene symbol on each line.  
+
+**Python script (pull_interesting_genes.py)**
+```Bash
+"""Given a gene list and an input file, prints lines from the input file that have genes found in the gene list in the 
+specified gene column. Gene list should have one gene symbol per line.
+
+Usage: python3 pull_interesting_genes.py -i <input.bed> -o <output.bed>
+
+Args:
+    -i input.bed = Name of input file to process.
+    -o output.bed = Name of output file.
+    -g gene_list.txt = Name of gene list file.
+    -c Gene column = Column in which gene(s) reside in input file. 
+    -d Delimiter = Delimiter of the gene column in the input file if they are lists. Should be quoted (e.g. ";", not just ;).
+"""
+```
+
+**Actual use:**
+```Bash
+python /scratch/jandrews/bin/pull_interesting_genes.py \
+-i RANKED_BY_CNV_RECUR_ALL_SEs_IN_DL_DELS_GENES.100KB_SE_GENES.bed \
+-o RANKED_BY_CNV_RECUR_ALL_SEs_IN_DL_DELS_GENES.100KB_SE_GENES.GC_B_GENES.bed \
+-g /scratch/jandrews/Data/Ref/GC_B_CELL_GENES.txt \
+-c 5 \
+-d ";"
+```
+
+---
+
+## <a name="MMPIDS"></a> Integrating circuit table data for MMPIDs
 As the circuit tables for FL and DL contain fold-change values for FAIRE, H3AC, and K27AC for each sample at each MMPID relative to the average of the CCs, they can be useful for us to determine which MMPIDs are actually affected by the CNVs.
 
 #### 1.) Process the circuit tables.
@@ -337,10 +381,10 @@ Usage: python match_FC_to_CNVs.py -t <amp or del> -i <input.bed> -o <output.bed>
 
 Args:
 	(required) -t <amp or del> = Type of CNVs that are in the file. 
-	(required) -i <input.bed> = Name of locus list file to process.
-	(required) -o <output.bed> = Name of output file to be created.
-	(optional) -cut <value> = Linear FC magnitude cutoff for H3AC/K27AC used to filter out uninteresting MMPIDs (default=2). Results must meet cutoff to be included.
-	(optional) -r = If included, only includes MMPIDs that are recurrent after applying the cutoff filters and such.
+ 	(required) -i <input.bed> = Name of locus list file to process.
+ 	(required) -o <output.bed> = Name of output file to be created.
+ 	(optional) -cut <value> = Linear FC magnitude cutoff for H3AC/K27AC used to filter out uninteresting MMPIDs (default=2). Results must meet cutoff to be included.
+ 	(optional) -r = If included, only includes MMPIDs that are recurrent after applying the cutoff filters and such.
 ```
 
 **Actual use:**
@@ -348,13 +392,21 @@ Args:
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED.bed -o DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED_2FC.bed -cut 2 -r
+python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp \
+-i DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED.bed \
+-o DL_CIRCUIT_MMPIDs_IN_DL_AMPS_ANNOT_GENES_CONDENSED_2FC.bed \
+-cut 2 \
+-r
 
-python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp -i DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED.bed -o DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED_2FC.bed -cut 2 -r
+python /scratch/jandrews/bin/match_FC_to_CNVs.py -t amp \
+-i DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED.bed \
+-o DL_CIRCUIT_MMPIDs_IN_DL_DELS_ANNOT_GENES_CONDENSED_2FC.bed \
+-cut 2 \
+-r
 ```
 
 #### 6.) Remove non-FAIRE positive MMPIDs.
-Pretty much any enhancer has a FAIRE peak in it, so we can remove those that don't. May have to remove the header and add it back after.
+Pretty much any enhancer has a FAIRE peak in it, so we can remove those that don't. Have to remove the header and add it back after.
 
 ```Bash
 module load bedtools2
