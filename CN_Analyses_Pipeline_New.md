@@ -30,7 +30,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Calling CNVs from SNP6 Arrays](name=#segment)
 - [Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
 - [Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
-- [Creating Boxplots of SE Signal on Sample-by-Sample Basis](name=#SEBoxPlots)
+- [Creating Boxplots of SE Signal on Sample-by-Sample CNV Basis](name=#SEBoxPlots)
 
 ---
 
