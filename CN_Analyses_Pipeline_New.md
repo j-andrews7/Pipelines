@@ -3,7 +3,7 @@
 **Up to date as of 04/14/2016.**  
 jared.andrews07@gmail.com
 
-> **This version differs from the "old" version because it treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the "golden ticket" CNVs by searching for minimal recurrent regions. Also gets into creating some figures to actually show effects of the CNVs on the activity of SEs and MMPIDs.**
+> This version differs from the "old" version because it **treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis** in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the **"golden ticket"** CNVs by searching for minimal recurrent regions. Also gets into creating some figures to actually try to show the effects of the CNVs on the activity of SEs and MMPIDs.
 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE and MMPID data. As with most things, this started off relatively simple and grew to become more complicated as results were viewed and additional approaches tried.
 
@@ -26,10 +26,10 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - Also available on the CHPC cluster.
 - [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1)
 
-**Sections:**
--[Calling CNVs from SNP6 Arrays](name=#segment)
--[Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
--[Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
+**Sections:**  
+- [Calling CNVs from SNP6 Arrays](name=#segment)
+- [Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
+- [Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
 
 ---
 
@@ -310,7 +310,7 @@ python /scratch/jandrews/bin/pull_interesting_genes.py \
 
 ---
 
-## <a name="MMPIDS"></a> Integrating circuit table data for MMPIDs
+## <a name="MMPIDS"></a> Integrating Circuit Table Data for MMPIDs in CNVs
 As the circuit tables for FL and DL contain fold-change values for FAIRE, H3AC, and K27AC for each sample at each MMPID relative to the average of the CCs, they can be useful for us to determine which MMPIDs are actually affected by the CNVs.
 
 #### 1.) Process the circuit tables.
