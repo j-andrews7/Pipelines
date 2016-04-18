@@ -30,6 +30,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Calling CNVs from SNP6 Arrays](name=#segment)
 - [Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
 - [Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
+- [Creating Boxplots of SE Signal on Sample-by-Sample Basis](name=#SEBoxPlots)
 
 ---
 
@@ -270,14 +271,17 @@ This will rank the amps/dels containing SEs by recurrence of the CNV.
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
+
 type=CLL
+
 python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py ALL_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_ALL_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed 
 python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py ALL_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_ALL_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed 
+
 python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py "$type"_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_"$type"_SEs_IN_"$type"_AMPS_GENES.100KB_SE_GENES.bed 
 python3 /scratch/jandrews/bin/rank_CNV_by_recurrence.py "$type"_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed RANKED_BY_CNV_RECUR_"$type"_SEs_IN_"$type"_DELS_GENES.100KB_SE_GENES.bed 
 ```
 
-At this point, you should have more or less whatever you need to do whatever you want. **Adding headers** before doing anything else with them is probably a good idea though. I like to compare the SE genes to a list of important B cell genes to see if anything really pops out. 
+At this point, you should have more or less whatever you need to do whatever you want. I like to compare the SE genes to a list of important B cell genes to see if anything really pops out. 
 
 #### 5.) Compare SE genes to gene list.  
 The gene list is just a text file with a gene symbol on each line.  
@@ -303,7 +307,7 @@ Args:
 python /scratch/jandrews/bin/pull_interesting_genes.py \
 -i RANKED_BY_CNV_RECUR_ALL_SEs_IN_DL_DELS_GENES.100KB_SE_GENES.bed \
 -o RANKED_BY_CNV_RECUR_ALL_SEs_IN_DL_DELS_GENES.100KB_SE_GENES.GC_B_GENES.bed \
--g /scratch/jandrews/Data/Ref/GC_B_CELL_GENES.txt \
+-g /scratch/jandrews/Ref/GC_B_CELL_GENES.txt \
 -c 5 \
 -d ";"
 ```
@@ -311,7 +315,7 @@ python /scratch/jandrews/bin/pull_interesting_genes.py \
 ---
 
 ## <a name="MMPIDS"></a> Integrating Circuit Table Data for MMPIDs in CNVs
-As the circuit tables for FL and DL contain fold-change values for FAIRE, H3AC, and K27AC for each sample at each MMPID relative to the average of the CCs, they can be useful for us to determine which MMPIDs are actually affected by the CNVs.
+As the circuit tables for FL and DL contain fold-change values for FAIRE, H3AC, and K27AC for each sample at each MMPID relative to the average of the CCs, they can be useful for us to determine which MMPIDs are actually affected by the CNVs. **This section doesn't use the merged CNVs.**
 
 #### 1.) Process the circuit tables.
 The circuit tables need a bit of work before they can be used directly (though I left these lying around somewhere after parsing them, so searching around might save you some trouble). The **DL table** erroneously has a sample called DL140, which is actually a CLL sample and needs to be removed. In addition, the MMPIDs are in the first column, but we want a psuedo-bed format for intersecting so we move them to the 4th column.
@@ -428,3 +432,58 @@ bedtools intersect -wa -a RECUR_"$type"_CIRCUIT_MMPIDs_IN_"$type"_DELS_ANNOT_GEN
 mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_AMPS_ANNOT_GENES_CONDENSED_2FC.bed
 mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC_HEADER.bed RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_2FC.bed
 ```
+
+---
+
+## <a name="SEBoxPlots"></a> Observe SE Signals Inside/Outside CNVs on a Sample-by-Sample Basis
+This section breaks the amp/del lists up by sample and then uses the signal from the B cell SEs to try to show an **increase** in SE signal in amps and a **decrease** in dels. It uses output from the **first section** and also requires that the [SE Pipeline](https://github.com/j-andrews7/Pipelines/blob/master/ROSE_SE_Pipeline.md) has been completed.
+
+#### 1.) Break the CNVs up by sample.
+We can use the files already generated when looking at the CNVs on a cell-type basis. More specifically, we want the files containing the amps/dels for each sample **without** merging, but with annotations and genes *already added*. This script will create a file for each sample within the CNV list and stick the CNVs for that sample in the file.
+
+**Python script (get_cnvs_by_sample.py)**
+```Bash
+"""
+Given a list of unmerged amps or dels with samples in the 4th column, prints the cnvs for every sample in the file to an 
+individual file.
+
+Usage: python3 get_cnvs_by_sample.py -i <input.bed> -o <output suffix>
+
+Args:
+    -i input.bed = Name of input file to process.
+    -o output suffix = Suffix to add to append to the sample names to be used as file names.
+"""
+```
+
+**Actual use:**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+python /scratch/jandrews/bin/get_cnvs_by_sample.py -i DL_AMPS_ANNOT_GENES_CONDENSED.bed -o _AMPS_ANNOT_GENES_CONDENSED.bed
+python /scratch/jandrews/bin/get_cnvs_by_sample.py -i DL_DELS_ANNOT_GENES_CONDENSED.bed -o _DELS_ANNOT_GENES_CONDENSED.bed
+
+python /scratch/jandrews/bin/get_cnvs_by_sample.py -i FL_AMPS_ANNOT_GENES_CONDENSED.bed -o _AMPS_ANNOT_GENES_CONDENSED.bed
+python /scratch/jandrews/bin/get_cnvs_by_sample.py -i FL_DELS_ANNOT_GENES_CONDENSED.bed -o _DELS_ANNOT_GENES_CONDENSED.bed
+
+python /scratch/jandrews/bin/get_cnvs_by_sample.py -i CLL_AMPS_ANNOT_GENES_CONDENSED.bed -o _AMPS_ANNOT_GENES_CONDENSED.bed
+python /scratch/jandrews/bin/get_cnvs_by_sample.py -i CLL_DELS_ANNOT_GENES_CONDENSED.bed -o _DELS_ANNOT_GENES_CONDENSED.bed
+```
+
+#### 2.) Get signal for SEs in/outside CNVs.
+This script intersects the SEs with the amps or dels for a given sample in a CNV file. The signal for the SEs found **in** the amp/del will be output to one file, while those found **outside** the amp/del will be output to another file. It's kind of lazily coded, so it *assumes* the sample name will be the first thing in the input file name (e.g., <sample>_moreinfo).
+
+**Python script (compare_SE_signal_cnvs.py):**
+```Bash
+
+```
+
+**Actual use:**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+for file in *_CONDENSED.bed; do
+	python /scratch/jandrews/bin/compare_SE_signal_cnvs.py "$file" FLDL_CCCB_ONLY_SES_SIGNAL.bed
+done
+``
