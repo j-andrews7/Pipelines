@@ -30,7 +30,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Calling CNVs from SNP6 Arrays](name=#segment)
 - [Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
 - [Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
-- [Creating Boxplots of SE Signal on Sample-by-Sample CNV Basis](name=#SEBoxPlots)
+- [Creating Boxplots of SE Signal on a Sample-by-Sample CNV Basis](name=#SEBoxPlots)
 
 ---
 
@@ -439,7 +439,7 @@ mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_
 This section breaks the amp/del lists up by sample and then uses the signal from the B cell SEs to try to show an **increase** in SE signal in amps and a **decrease** in dels. It uses output from the **first section** and also requires that the [SE Pipeline](https://github.com/j-andrews7/Pipelines/blob/master/ROSE_SE_Pipeline.md) has been completed.
 
 #### 1.) Break the CNVs up by sample.
-We can use the files already generated when looking at the CNVs on a cell-type basis. More specifically, we want the files containing the amps/dels for each sample **without** merging, but with annotations and genes *already added*. This script will create a file for each sample within the CNV list and stick the CNVs for that sample in the file.
+We can use the files already generated when looking at the CNVs on a cell-type basis. More specifically, we want the files containing the amps/dels for each sample **without** merging, but with annotations and genes *already added*. This script will create a file for each sample within the CNV list and stick the CNVs for that sample in the file. These files are also useful for looking at [lincRNA expression changes](name=#) and 
 
 **Python script (get_cnvs_by_sample.py)**
 ```Bash
@@ -486,4 +486,22 @@ source activate anaconda
 for file in *_CONDENSED.bed; do
 	python /scratch/jandrews/bin/compare_SE_signal_cnvs.py "$file" FLDL_CCCB_ONLY_SES_SIGNAL.bed
 done
-``
+```
+
+#### 3.) Copy data into table.
+Use excel (or write a script, I'm a guideline, not a cop), to get all of the signals into a format like so:
+
+| DL135      |             | DL188      |             | DL237      |
+| In amps    | Not in amps | In amps    | Not in amps | In amps    |
+| 3911.606   | 2203.344    | 11907.221  | 8764.877    | 2827.4988  |
+| 16398.0495 | 2948.2706   | 8582.6538  | 3584.8002   | 6127.065   |
+| 12176.5078 | 2866.2588   | 7796.7622  | 881.8416    | 2146.9332  |
+
+The columns will likely not be the same length. Can also make other tables like this, like "In amps" vs "Not in amps", etc.
+
+#### 4.) Create box plots.
+I used GraphPad Prism for this since it looks good, is pretty easy to use, and can do any stats you may want. I did Welch's t-tests and got decent results. 
+
+---
+
+## <a name="lincs"></a> Comparing lincRNA Expression in CNVs
