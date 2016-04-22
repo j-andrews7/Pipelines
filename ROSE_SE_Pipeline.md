@@ -1,6 +1,6 @@
 # Super Enhancer Calling
 
-##### Up to date as of 04/01/2016
+##### Last edited 04/22/2016
 
 A super enhancer pipeline using ROSE - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easily be combined/piped together.
 
