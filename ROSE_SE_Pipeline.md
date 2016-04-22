@@ -148,7 +148,7 @@ Remove the garbage chromosomes and unnecessary columns. Run the below command fr
 ```Bash
 for F in *.bed; do
 	base=${F##*/}
-	(sed '/_g/d' "$F" | sed '/chrM/d' | sed '/chrY/d' | cut -f 1-4) > ${base%.*}.clean.bed ;
+	(sed '/_g\|chrM\|chrY\|chrX\|chr23/d' "$F" | cut -f 1-4) > ${base%.*}.clean.bed ;
 	cut -f 1-4 ${base%.*}.clean.bed > "$F"
 	rm ${base%.*}.clean.bed
 done
