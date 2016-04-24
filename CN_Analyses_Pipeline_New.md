@@ -1,6 +1,6 @@
 # CN Analysis 
 
-**Up to date as of 04/18/2016.**  
+**Up to date as of 04/22/2016.**  
 jared.andrews07@gmail.com
 
 > This version differs from the "old" version because it **treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis** in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the **"golden ticket"** CNVs by searching for minimal recurrent regions. Also gets into creating some figures to actually try to show the effects of the CNVs on the activity of SEs and MMPIDs.
@@ -471,36 +471,50 @@ python /scratch/jandrews/bin/get_cnvs_by_sample.py -i CLL_DELS_ANNOT_GENES_CONDE
 ```
 
 #### 2.) Get signal for SEs in/outside CNVs.
-This script intersects the SEs with the amps or dels for a given sample in a CNV file. The signal for the SEs found **in** the amp/del will be output to one file, while those found **outside** the amp/del will be output to another file. It's kind of lazily coded, so it *assumes* the sample name will be the first thing in the input file name (e.g., <sample>_moreinfo).
+This script intersects the SEs with the amps and dels for a given sample. The signal for the SEs found **in** the amp/del will be output to one file, while those found **outside** the amp/del will be output to another file. It also finds the SEs that are "unchanged" in a given sample (i.e., **not found in either the amps or dels**). It's kind of lazily coded, so it *assumes* the sample name will be the first thing in the input file name (e.g., <sample>_moreinfo).
 
 **Python script (compare_SE_signal_cnvs.py):**
 ```Bash
+"""
+Given lists of unmerged amps and dels for a sample, gets the signal for all SEs in that sample that lie within the amps/dels, 
+outside them, and for those that are unchanged and spits this info out to multiple files.
 
+Usage: python3 compare_SE_signal_cnvs.py <amps.bed> <dels.bed> <SE_signal.bed>
+
+Args:
+    amps.bed = Name of amps file to process.
+    dels.bed = Name of dels file to process.
+    SE_signal.bed = Name of SE signal file.
+"""
 ```
+
+I cheat a bit here and bank on my files being named with the sample first and the directory being otherwise empty for anything that would match this pattern.
 
 **Actual use:**
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-for file in *_CONDENSED.bed; do
-	python /scratch/jandrews/bin/compare_SE_signal_cnvs.py "$file" FLDL_CCCB_ONLY_SES_SIGNAL.bed
+for file in *AMPS*; do
+	samp="$(echo "$file" | cut -d'_' -f1)"
+	python /scratch/jandrews/bin/compare_SE_signal_cnvs.py "$samp"* FLDL_CCCB_ONLY_SES_SIGNAL.bed
 done
 ```
 
 #### 3.) Copy data into table.
-Use excel (or write a script, I'm a guideline, not a cop), to get all of the signals into a format like so:
+Use excel (or write a script, I'm a guideline, not a cop), to get all of the signals into a format like so for all the comparisons you'd like to see:
 
-| DL135      |             | DL188      |             | DL237      |
-| In amps    | Not in amps | In amps    | Not in amps | In amps    |
-| 3911.606   | 2203.344    | 11907.221  | 8764.877    | 2827.4988  |
-| 16398.0495 | 2948.2706   | 8582.6538  | 3584.8002   | 6127.065   |
-| 12176.5078 | 2866.2588   | 7796.7622  | 881.8416    | 2146.9332  |
+| DL135      |             | DL188      |             |
+|------------|-------------|------------|-------------|
+| In amps    | Not in amps | In amps    | Not in amps |
+| 3911.606   | 2203.344    | 11907.221  | 8764.877    |
+| 16398.0495 | 2948.2706   | 8582.6538  | 3584.8002   |
+| 12176.5078 | 2866.2588   | 7796.7622  | 881.8416    |
 
-The columns will likely not be the same length. Can also make other tables like this, like "In amps" vs "Not in amps", etc.
+The columns will likely not be the same length. Can also make other tables like this, like "In amps" vs "In dels", etc.
 
 #### 4.) Create box plots.
-I used GraphPad Prism for this since it looks good, is pretty easy to use, and can do any stats you may want. I did Welch's t-tests and got decent results. 
+I used GraphPad Prism for this since it looks good, is pretty easy to use, and can do any stats you may want. I did unpaired, two-tailed, Welch's t-tests and got decent results. 
 
 ---
 
