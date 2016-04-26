@@ -497,7 +497,7 @@ source activate anaconda
 
 for file in *AMPS*; do
 	samp="$(echo "$file" | cut -d'_' -f1)"
-	python /scratch/jandrews/bin/compare_SE_signal_cnvs.py "$samp"* FLDL_CCCB_ONLY_SES_SIGNAL.bed
+	python /scratch/jandrews/bin/get_sample_se_cnv_loads.py "$samp"* FLDL_CCCB_ONLY_SES_SIGNAL.bed
 done
 ```
 
@@ -519,3 +519,13 @@ I used GraphPad Prism for this since it looks good, is pretty easy to use, and c
 ---
 
 ## <a name="lincs"></a> Comparing lincRNA Expression in CNVs
+
+This analysis is similar to the one for SEs above, but looking at lincRNA expression rather than SE signal. It does the analysis two ways, by comparing to the **median** expression across samples for each linc and also comparing to the **average** expression.
+
+#### 1.) Cut unwanted columns and rows.
+The original table has VGA/CC samples, but I only want to normalize to samples for which we also have CN data (so just the tumors). Also removes the sex chromosomes.
+
+```Bash
+cut -f4,7,8,26-30 --complement GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1.txt | sed '/chrX\|chrY\|chr23\|_g/d' - > GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1_CUT.txt
+```
+
