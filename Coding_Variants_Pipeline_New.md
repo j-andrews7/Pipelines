@@ -155,6 +155,11 @@ This is essentially impossible to get working on the cluster due to how perl is 
 perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i coding_VS_BCF_final.vcf -o coding_VS_BCF_final_annotated.vcf
 ```
 
+Can filter the common variants (MAF >0.01 in 1000 genomes) with the following command if you'd like.
+```Bash
+perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --filter_common --port 3337 -i coding_VS_BCF_final.vcf -o coding_VS_BCF_final_annotated.vcf
+```
+
 Can do whatever with it at this point. I intersected with some TF data from ENCODE.
 
 ##### 10.) Intersect with GM TF ChIP-Seq data.
