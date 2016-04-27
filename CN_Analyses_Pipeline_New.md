@@ -473,13 +473,13 @@ python /scratch/jandrews/bin/get_cnvs_by_sample.py -i CLL_DELS_ANNOT_GENES_CONDE
 #### 2.) Get signal for SEs in/outside CNVs.
 This script intersects the SEs with the amps and dels for a given sample. The signal for the SEs found **in** the amp/del will be output to one file, while those found **outside** the amp/del will be output to another file. It also finds the SEs that are "unchanged" in a given sample (i.e., **not found in either the amps or dels**). It's kind of lazily coded, so it *assumes* the sample name will be the first thing in the input file name (e.g., <sample>_moreinfo).
 
-**Python script (compare_SE_signal_cnvs.py):**
+**Python script (get_sample_se_cnv_loads.py):**
 ```Bash
 """
 Given lists of unmerged amps and dels for a sample, gets the signal for all SEs in that sample that lie within the amps/dels, 
 outside them, and for those that are unchanged and spits this info out to multiple files.
 
-Usage: python3 compare_SE_signal_cnvs.py <amps.bed> <dels.bed> <SE_signal.bed>
+Usage: python3 get_sample_se_cnv_loads.py <amps.bed> <dels.bed> <SE_signal.bed>
 
 Args:
     amps.bed = Name of amps file to process.
@@ -529,3 +529,34 @@ The original table has VGA/CC samples, but I only want to normalize to samples f
 cut -f4,7,8,26-30 --complement GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1.txt | sed '/chrX\|chrY\|chr23\|_g/d' - > GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1_CUT.txt
 ```
 
+#### 2.) Calculate linc expression FCs for each sample in CNVs.
+The mash everything together and get stats script. It calculates the log2 FC for each linc in each sample compared to the median and average of the linc FPKMs for all samples in the expression file. Spits out these values for all lincs inside/out the CNVs for each sample.
+
+**Python script (get_sample_linc_cnv_loads.py):**
+```Bash
+"""Given lists of unmerged amps and dels for a sample, gets the expression for all lincs in that sample that lie within the amps/dels, outside them, and for those that are unchanged and spits this info out to multiple files. The linc expression is log2 FC to the median/average of the other samples in the expression file. Also yields a few summary stats that may be helpful.
+
+Linc RNA expression file should contain a header and the format should be:
+CHR	START	STOP	GENE_ID	GENE_SHORT_NAME	<SAMPLE_FPKM_COLUMNS>
+
+Usage: python3 get_sample_linc_cnv_loads.py <amps.bed> <dels.bed> <linc_expression.txt>
+
+Args:
+    amps.bed = Name of amps file to process.
+    dels.bed = Name of dels file to process.
+    linc_expression.txt = Name of linc_expression file.
+"""
+```
+
+I cheat a bit here and bank on my files being named with the sample first and the directory being otherwise empty for anything that would match this pattern.
+
+**Actual use:**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+for file in *AMPS*; do
+	samp="$(echo "$file" | cut -d'_' -f1)"
+	python /scratch/jandrews/bin/get_sample_linc_cnv_loads.py "$samp"* GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1_CUT.txt
+done
+```
