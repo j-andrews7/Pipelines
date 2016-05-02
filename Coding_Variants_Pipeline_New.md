@@ -29,7 +29,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 ---
 
 ##### 1A.) Call variants with VarScan.
-samtools: mpileup piped to varscan to call variants with filters for read depth (5) and quality (15).
+samtools: mpileup piped to varscan to call variants with filters for read depth (5) and quality (15).  
 **Bash script (var_call_varscan.sh):**
 ```Bash
 #!/bin/sh
@@ -52,7 +52,7 @@ module remove samtools-1.2
 module remove bcftools-1.2
 ```
 
-##### 1B i.) Call variants with bcftools (samtools).
+##### 1B i.) Call variants with bcftools (samtools).  
 **Bash script (var_call_bcf.sh):**
 ```Bash
 #!/bin/sh
@@ -127,14 +127,14 @@ done
 ##### 6.) Merge VCFs.
 Merge the samtools, VarScan, and FunSeq variants for each sample. The three files should be within a directory specific to the sample. `-m none` means multiallelic records will be split to separate lines. Doing so is rather important, as if two samples have different variant alleles at the same position, only one is reported as having the variant if multiallelic records are allowed. Alternatively, setting `-m both` should create a multiallelic record, which may be wanted at times. No idea what the default is, BCFtools docs don't mention.
 
-**For VarScan:**
+**For VarScan:**  
 ```Bash
 module load bcftools-1.2
 bcftools merge -O v -m none --force-samples -i ADP:sum,DP:sum *.gz > merge.vcf
 module remove bcftools-1.2
 ```
 
-**For BCFTools:**
+**For BCFTools:**  
 ```Bash
 module load bcftools-1.2
 bcftools merge -O v -m none -i DP:sum *.gz > merge.vcf
@@ -155,7 +155,7 @@ This is essentially impossible to get working on the cluster due to how perl is 
 perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i coding_VS_BCF_final.vcf -o coding_VS_BCF_final_annotated.vcf
 ```
 
-Can filter the common variants (MAF >0.01 in 1000 genomes) with the following command if you'd like.
+Can filter the common variants (MAF >0.01 in 1000 genomes) with the following command if you'd like.  
 ```Bash
 perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --filter_common --port 3337 -i coding_VS_BCF_final.vcf -o coding_VS_BCF_final_annotated.vcf
 ```
