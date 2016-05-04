@@ -27,7 +27,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1)
 
 #### Sections  
-- [Calling CNVs from SNP6 Arrays](name=#cnv-calling)
+- [Calling CNVs from SNP6 Arrays](#cnv-calling)
 - [Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
 - [Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
 - [Creating Boxplots of SE Signal on a Sample-by-Sample CNV Basis](name=#SEBoxPlots)
