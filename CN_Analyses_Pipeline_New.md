@@ -471,7 +471,7 @@ python /scratch/jandrews/bin/get_cnvs_by_sample.py -i CLL_DELS_ANNOT_GENES_CONDE
 ```
 
 #### 2.) Get signal for SEs in/outside CNVs.
-This script intersects the SEs with the amps and dels for a given sample. The signal for the SEs found **in** the amp/del will be output to one file, while those found **outside** the amp/del will be output to another file. It also finds the SEs that are "unchanged" in a given sample (i.e., **not found in either the amps or dels**). It's kind of lazily coded, so it *assumes* the sample name will be the first thing in the input file name (e.g., <sample>_moreinfo).
+This script intersects the SEs with the amps and dels for a given sample. The signal for the SEs found **in** the amp/del will be output to one file, while those found **outside** the amp/del will be output to another file. It also finds the SEs that are "unchanged" in a given sample (i.e., **not found in either the amps or dels**). It's kind of lazily coded, so it *assumes* the sample name will be the first thing in the input file name (e.g., <sample>_moreinfo). 
 
 **Python script (get_sample_se_cnv_loads.py):**
 ```Bash
@@ -479,12 +479,13 @@ This script intersects the SEs with the amps and dels for a given sample. The si
 Given lists of unmerged amps and dels for a sample, gets the signal for all SEs in that sample that lie within the amps/dels, 
 outside them, and for those that are unchanged and spits this info out to multiple files.
 
-Usage: python3 get_sample_se_cnv_loads.py <amps.bed> <dels.bed> <SE_signal.bed>
+Usage: python3 get_sample_se_cnv_loads.py <amps.bed> <dels.bed> <SE_signal.bed> <Overlap percentage as decimal>
 
 Args:
     amps.bed = Name of amps file to process.
     dels.bed = Name of dels file to process.
     SE_signal.bed = Name of SE signal file.
+    overlap_percentage = Percentage as decimal for determining if an SE should be considered "overlapping" a CNV or not.
 """
 ```
 
@@ -495,9 +496,9 @@ I cheat a bit here and bank on my files being named with the sample first and th
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-for file in *AMPS*; do
+for file in *AMPS_ANNOT*; do
 	samp="$(echo "$file" | cut -d'_' -f1)"
-	python /scratch/jandrews/bin/get_sample_se_cnv_loads.py "$samp"* FLDL_CCCB_ONLY_SES_SIGNAL.bed
+	python /scratch/jandrews/bin/get_sample_se_cnv_loads.py "$samp"* FLDL_CCCB_ONLY_SES_SIGNAL.bed 0.25
 done
 ```
 
@@ -530,7 +531,7 @@ cut -f4,7,8,26-30 --complement GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1.txt | sed '
 ```
 
 #### 2.) Calculate linc expression FCs for each sample in CNVs.
-The mash everything together and get stats script. It calculates the log2 FC for each linc in each sample compared to the median and average of the linc FPKMs for all samples in the expression file. Spits out these values for all lincs inside/out the CNVs for each sample.
+The mash everything together and get stats script. It calculates the log2 FC for each linc in each sample compared to the median and average of the linc FPKMs for all samples in the expression file. Spits out these values for all lincs inside/out the CNVs for each sample. You set the percentage that the linc must overlap the CNV to be considered "in" it. I usually try a few different percentages, but anything >= 25% will get rid on those fringe cases where the linc is barely overlapping the CNV.
 
 **Python script (get_sample_linc_cnv_loads.py):**
 ```Bash
@@ -539,12 +540,13 @@ The mash everything together and get stats script. It calculates the log2 FC for
 Linc RNA expression file should contain a header and the format should be:
 CHR	START	STOP	GENE_ID	GENE_SHORT_NAME	<SAMPLE_FPKM_COLUMNS>
 
-Usage: python3 get_sample_linc_cnv_loads.py <amps.bed> <dels.bed> <linc_expression.txt>
+Usage: python3 get_sample_linc_cnv_loads.py <amps.bed> <dels.bed> <linc_expression.txt> <overlap percentage as decimal>
 
 Args:
     amps.bed = Name of amps file to process.
     dels.bed = Name of dels file to process.
     linc_expression.txt = Name of linc_expression file.
+    overlap_percentage = Percent of linc that must overlap the CNV for it to be considered 'overlapping'.
 """
 ```
 
@@ -555,8 +557,23 @@ I cheat a bit here and bank on my files being named with the sample first and th
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-for file in *AMPS*; do
+for file in *AMPS_ANNOT*; do
 	samp="$(echo "$file" | cut -d'_' -f1)"
-	python /scratch/jandrews/bin/get_sample_linc_cnv_loads.py "$samp"* GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1_CUT.txt
+	python /scratch/jandrews/bin/get_sample_linc_cnv_loads.py "$samp"* GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1_CUT.txt 0.25
 done
 ```
+
+#### 3.) Copy data into table.
+Use excel (or write a script, I'm a guideline, not a cop), to get all of the signals into a format like so for all the comparisons you'd like to see:
+
+| DL135   |             |             |             |
+|---------|-------------|-------------|-------------|
+| In amps |  In amps    | Not in amps | Not in amps | 
+| Median  | Average     | Median      |  Average    |
+| 1.0785  |  0.8923     | 0.2133      | -0.2176     |
+| 0.1346  | -0.2342     | -0.5646     | -0.3435     |
+
+The columns will likely not be the same length. Can also make other tables like this, like "In amps" vs "In dels", etc.
+
+#### 4.) Visualize.
+Again, box plots in prism are likely the best way to look at this data, and it allows for easy t-tests, etc.
