@@ -28,9 +28,9 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 #### Sections  
 - [Calling CNVs from SNP6 Arrays](#cnv-calling)
-- [Integrating SEs with CNVs by Cell Type](name=#SEsCellType)
-- [Integrating Circuit Table Data to Filter MMPIDs in CNVs](name=#MMPIDS)
-- [Creating Boxplots of SE Signal on a Sample-by-Sample CNV Basis](name=#SEBoxPlots)
+- [Integrating SEs with CNVs by Cell Type](#integrate-se-data)
+- [Integrating Circuit Table Data to Filter MMPIDs in CNVs](#integrating-circuit-table-data-for-mmpids)
+- [Creating Boxplots of SE Signal on a Sample-by-Sample CNV Basis](#observe-se-signals-inside-and-outside-cnvs)
 
 ---
 
@@ -159,7 +159,7 @@ grep '\.' RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > RECURRENT_"$type"_DELS_MERGE
 
 ---
 
-## <a name="SEsCellType"></a>Integrate SE Data for CNVs by Cell Type
+## Integrate SE Data
 This utilizes the files generated in the above section to look at the SEs located in CNVs on a cell-type basis.
 
 #### 1.) Intersect CNVs with SEs and Enhancers.
@@ -314,7 +314,7 @@ python /scratch/jandrews/bin/pull_interesting_genes.py \
 
 ---
 
-## <a name="MMPIDS"></a> Integrating Circuit Table Data for MMPIDs in CNVs
+## Integrating Circuit Table Data for MMPIDs
 As the circuit tables for FL and DL contain fold-change values for FAIRE, H3AC, and K27AC for each sample at each MMPID relative to the average of the CCs, they can be useful for us to determine which MMPIDs are actually affected by the CNVs. **This section doesn't use the merged CNVs.**
 
 #### 1.) Process the circuit tables.
@@ -435,8 +435,8 @@ mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_
 
 ---
 
-## <a name="SEBoxPlots"></a> Observe SE Signals Inside/Outside CNVs on a Sample-by-Sample Basis
-This section breaks the amp/del lists up by sample and then uses the signal from the B cell SEs to try to show an **increase** in SE signal in amps and a **decrease** in dels. It uses output from the **first section** and also requires that the [SE Pipeline](https://github.com/j-andrews7/Pipelines/blob/master/ROSE_SE_Pipeline.md) has been completed.
+## <a name="SEBoxPlots"></a> Observe SE Signals Inside and Outside CNVs 
+This section breaks the amp/del lists up *by sample* and then uses the signal from the B cell SEs to try to show an **increase** in SE signal in amps and a **decrease** in dels. It uses output from the **first section** and also requires that the [SE Pipeline](https://github.com/j-andrews7/Pipelines/blob/master/ROSE_SE_Pipeline.md) has been completed.
 
 #### 1.) Break the CNVs up by sample.
 We can use the files already generated when looking at the CNVs on a cell-type basis. More specifically, we want the files containing the amps/dels for each sample **without** merging, but with annotations and genes *already added*. This script will create a file for each sample within the CNV list and stick the CNVs for that sample in the file. These files are also useful for looking at [lincRNA expression changes](name=#) and 
