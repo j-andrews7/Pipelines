@@ -22,15 +22,18 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - This should be available on the CHPC cluster.
 - [Python3](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
+    -Some of the scripts for plotting use NumPy, matplotlib, and pandas. I'm too lazy to post links, but just activating your virtualenv and using `pip install numpy`, etc should get these all installed very easily.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
 - [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1)
 
 #### Sections  
 - [Calling CNVs from SNP6 Arrays](#cnv-calling)
+- [Finding Minimal Common Regions Across CNVs](#finding-minimal-common-regions-across-cnvs)
 - [Integrating SEs with CNVs by Cell Type](#integrate-se-data)
 - [Integrating Circuit Table Data to Filter MMPIDs in CNVs](#integrating-circuit-table-data-for-mmpids)
 - [Creating Boxplots of SE Signal on a Sample-by-Sample CNV Basis](#observe-se-signals-inside-and-outside-cnvs)
+- [Comparing lncRNA Expression in CNVs](#comparing-lncrna-expression-in-cnvs)
 
 ---
 
@@ -159,8 +162,93 @@ grep '\.' RECURRENT_"$type"_DELS_MERGED_ANNOT.bed > RECURRENT_"$type"_DELS_MERGE
 
 ---
 
+## Finding Minimal Common Regions Across CNVs
+This utilizes the files generated in the [CNV calling section](#cnv-calling) to try to identify the minimal common regions (MCRs) between the CNVs in each sample. This is *kind of* what [GISTIC](http://www.broadinstitute.org/cgi-bin/cancer/publications/pub_paper.cgi?mode=view&paper_id=216&p=t) tries to do.
+
+#### 1.) Bin the Genome.
+Chopping the genome into bins will allow for greater resolution of which segments of the CNVs actually overlap between samples. I used 5k bins here, you can use whatever you'd like. But for **plotting**, you should use **at least 25kb bin** if you're trying to plot the entire genome. Smaller bins can be used if you make multiple plots (one for each chromosome). The genome file should just have the start (0) and end of each chromosome.
+
+```Bash
+bedops --chop 5000 hg19.bed > hg19.5kb_bins.bed
+```
+
+#### 2.) Intersect CNVs with the Binned Genome.
+This will create a new column for each sample with a count for the number of elements that overlap each bin. After iterating through all the files, we'll end up with a matrix that we can use to plot after a bit of tweaking. This can be done with CNVs for **only one cell type** or **combining them all together**. I show doing it for both DL and FL samples here. 
+
+```Bash
+module load bedtools2
+
+cp hg19.5kb_bins.bed FLDL_AMPS_MATRIX_5KB.bed
+cp hg19.5kb_bins.bed FLDL_DELS_MATRIX_5KB.bed
+
+# First the amps.
+for f in *AMPS_ANNOT*; do
+	echo "$f"
+	bedtools intersect -loj -c -a FLDL_AMPS_MATRIX_5KB.bed -b "$f" > FLDL_AMPS_MATRIX_5KB.bed.temp
+	mv FLDL_AMPS_MATRIX_5KB.bed.temp FLDL_AMPS_MATRIX_5KB.bed
+done
+
+# Then the dels.
+for f in *DELS_ANNOT*; do
+	echo "$f"
+	bedtools intersect -loj -c -a FLDL_DELS_MATRIX_5KB.bed -b "$f" > FLDL_DELS_MATRIX_5KB.bed.temp
+	mv FLDL_DELS_MATRIX_5KB.bed.temp FLDL_DELS_MATRIX_5KB.bed
+done
+```
+
+#### 3.) Scrub and condense amp/del matrices.
+We need to do a few things before we can plot the data. First, the bins with multiple amps/dels overlapping need these values >1 to be reduced to 1. Second, the dels need their values converted to negatives. Lastly, the the amp/dels need to be merged for each bin and the file needs to be sorted numerically rather than lexicographically. This script does all of that. **Pay attention to file order, it *must* go amps then dels.** This uses a fair amount of memory, so I ran it in an interactive job on the cluster.
+
+**Python script(condense_cn_matrices.py):**
+```Bash
+qsub -I -l nodes=1:ppn=4,walltime=15:00:00,vmem=16gb
+
+python /scratch/jandrews/bin/condense_cn_matrices.py \ /scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_AMPS_MATRIX_5KB.bed \ /scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_DELS_MATRIX_5KB.bed \ /scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_CN_MATRIX_5KB.bed \
+
+```
+
+#### 4.) Break up into chromosomes.
+The entire genome doesn't look so great on a single figure. So let's break it up into chromosomes.
+
+```Bash
+mkdir 5KB_SPLIT_RESULTS
+for chr in `cut -f 1 FLDL_CN_MATRIX_5KB.bed | uniq`; do
+        grep -w $chr FLDL_CN_MATRIX_5KB.bed > 5KB_SPLIT_RESULTS/$chr.FLDL_CN_MATRIX_5KB.bed
+done
+```
+
+#### 5.) Add a header.
+These will be used as columns for plotting. It's also nice to know what's in a file.
+```Bash
+for f in *MATRIX*; do
+	{ printf 'CHR\tSTART\tEND\tDL135\tDL166\tDL188\tDL191\tDL237\tDL252\tDL273\tDL3A193\tFL120\tFL125\tFL139\tFL153\tFL174\tFL202\tFL238\tFL255\tFL301\tFL313\tFL3A145\n'; cat "$f"; } > "$f".temp
+done
+mv "$f".temp "$f"
+
+for f in ./5KB_SPLIT_RESULTS/*.bed; do
+	{ printf 'CHR\tSTART\tEND\tDL135\tDL166\tDL188\tDL191\tDL237\tDL252\tDL273\tDL3A193\tFL120\tFL125\tFL139\tFL153\tFL174\tFL202\tFL238\tFL255\tFL301\tFL313\tFL3A145\n'; cat "$f"; } > "$f".temp
+	mv "$f".temp "$f"
+done
+```
+
+The next few steps are going to be a bit wonky in that they don't necessarily have to be done in order. We're going to do **plotting** next, but the files we just created *will be used to find the MCRs* in a later step.
+
+
+#### 5.) Plot the data.  
+The first three columns will be used as the row labels. The rest of the data will be used as the column labels. This script can be edited to change the aesthetics and size. Note that if you try to make enormous figs, you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly.
+
+**Python script (combine_bed_pos.py):**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+python /scratch/jandrews/bin/plot_cn_bins.py DL_AMPS_MATRIX_5KB.bed 
+```
+
+---
+
 ## Integrate SE Data
-This utilizes the files generated in the above section to look at the SEs located in CNVs on a cell-type basis.
+This utilizes the files generated in the [CNV calling section](#cnv-calling) to look at the SEs located in CNVs on a cell-type basis.
 
 #### 1.) Intersect CNVs with SEs and Enhancers.
 Do every intersect you could ever really want. 
@@ -435,7 +523,7 @@ mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_
 
 ---
 
-## <a name="SEBoxPlots"></a> Observe SE Signals Inside and Outside CNVs 
+## Observe SE Signals Inside and Outside CNVs 
 This section breaks the amp/del lists up *by sample* and then uses the signal from the B cell SEs to try to show an **increase** in SE signal in amps and a **decrease** in dels. It uses output from the **first section** and also requires that the [SE Pipeline](https://github.com/j-andrews7/Pipelines/blob/master/ROSE_SE_Pipeline.md) has been completed.
 
 #### 1.) Break the CNVs up by sample.
@@ -519,7 +607,7 @@ I used GraphPad Prism for this since it looks good, is pretty easy to use, and c
 
 ---
 
-## <a name="lincs"></a> Comparing lincRNA Expression in CNVs
+## Comparing lincRNA Expression in CNVs
 
 This analysis is similar to the one for SEs above, but looking at lincRNA expression rather than SE signal. It does the analysis two ways, by comparing to the **median** expression across samples for each linc and also comparing to the **average** expression.
 
