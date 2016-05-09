@@ -259,6 +259,7 @@ I use bin sizes of 1kb for this, though you could go even smaller if you wanted 
 
 **Python script (find_cn_mcrs.py):**
 ```Bash
+"""
 Given a matrix of CN counts for a binned genome, identify bins that have the cnv for a given percentage of samples.
 Merge them to identify minimal common regions between all the samples. Assumes the input file has a header.
 
@@ -269,6 +270,7 @@ Args:
     	or not the sample has a cnv for the bin.
     -o output.bed (required) = Name of output file.
     -p (optional) = Percentage of samples that must contain the cnv for a bin to be reported as a MCR. Default = 0.25.
+"""
 ```
 
 **Actual use:**
@@ -279,6 +281,8 @@ module load bedtools2
 python /scratch/jandrews/bin/find_cn_mcrs.py -i FLDL_AMPS_MATRIX_1KB.bed -o FLDL_AMPS_1KB.bed
 python /scratch/jandrews/bin/find_cn_mcrs.py -i FLDL_DELS_MATRIX_1KB.bed -o FLDL_DELS_1KB.bed
 ```
+
+Can take these output and intersect with lncRNAs, SEs, MMPIDs, etc.
 
 ---
 
@@ -559,10 +563,10 @@ mv RECUR_"$type"_CIRCUIT_FAIRE_POS_MMPIDs_IN_"$type"_DELS_ANNOT_GENES_CONDENSED_
 ---
 
 ## Observe SE Signals Inside and Outside CNVs 
-This section breaks the amp/del lists up *by sample* and then uses the signal from the B cell SEs to try to show an **increase** in SE signal in amps and a **decrease** in dels. It uses output from the **first section** and also requires that the [SE Pipeline](https://github.com/j-andrews7/Pipelines/blob/master/ROSE_SE_Pipeline.md) has been completed.
+This section breaks the amp/del lists up *by sample* and then uses the signal from the B cell SEs to try to show an **increase** in SE signal in amps and a **decrease** in dels. It uses output from the **[CNV-calling section](#cnv-calling)** and also requires that the [SE Pipeline](https://github.com/j-andrews7/Pipelines/blob/master/ROSE_SE_Pipeline.md) has been completed.
 
 #### 1.) Break the CNVs up by sample.
-We can use the files already generated when looking at the CNVs on a cell-type basis. More specifically, we want the files containing the amps/dels for each sample **without** merging, but with annotations and genes *already added*. This script will create a file for each sample within the CNV list and stick the CNVs for that sample in the file. These files are also useful for looking at [lincRNA expression changes](name=#) and 
+We can use the files already generated when looking at the CNVs on a cell-type basis. More specifically, we want the files containing the amps/dels for each sample **without** merging, but with annotations and genes *already added*. This script will create a file for each sample within the CNV list and stick the CNVs for that sample in the file. These files are also useful for looking at [lincRNA expression changes](name=#comparing-lincrna-expression-in-cnvs).
 
 **Python script (get_cnvs_by_sample.py)**
 ```Bash
