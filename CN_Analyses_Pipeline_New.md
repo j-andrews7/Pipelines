@@ -22,7 +22,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - This should be available on the CHPC cluster.
 - [Python3](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
-    -Some of the scripts for plotting use NumPy, matplotlib, and pandas. I'm too lazy to post links, but just activating your virtualenv and using `pip install numpy`, etc should get these all installed very easily.
+    -Some of the scripts for plotting use NumPy, matplotlib, seaborn, and pandas. I'm too lazy to post links, but just activating your virtualenv and using `pip install numpy`, etc should get these all installed very easily.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
 - [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1)
@@ -199,7 +199,7 @@ done
 #### 3.) Scrub and condense amp/del matrices.
 We need to do a few things before we can plot the data. First, the bins with multiple amps/dels overlapping need these values >1 to be reduced to 1. Second, the dels need their values converted to negatives. Lastly, the the amp/dels need to be merged for each bin and the file needs to be sorted numerically rather than lexicographically. This script does all of that. **Pay attention to file order, it *must* go amps then dels.** This uses a fair amount of memory, so I ran it in an interactive job on the cluster.
 
-**Python script(condense_cn_matrices.py):**
+**Python script (condense_cn_matrices.py):**
 ```Bash
 qsub -I -l nodes=1:ppn=4,walltime=15:00:00,vmem=16gb
 
@@ -235,7 +235,7 @@ The next few steps are going to be a bit wonky in that they don't __*necessarily
 
 
 #### 6.) Plot the data.  
-The first three columns will be used as the row labels. The rest of the data will be used as the column labels. This script can be edited to change the aesthetics and size. Note that if you try to make enormous figs, you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly. 
+The first three columns will be used as the row labels. The rest of the data will be used as the column labels. This script can be edited to change the aesthetics and size. Note that if you try to make enormous figs, you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly. Adding lines between the columns/chromosomes, etc, in photoshop or powerpoint is helpful, and you'll probably want to relabel the columns.
 
 *Note: I had trouble getting the Seaborn package to run on the cluster, so I ran this locally.*
 
@@ -252,6 +252,32 @@ cd 5KB_SPLIT_RESULTS
 for f in *.bed; do
 	python ../plot_cn_bins.py "$f"
 done
+```
+
+#### 7.) Go back and find the MCRs.
+I use bin sizes of 1kb for this, though you could go even smaller if you wanted even greater resolution. This is done for the amp and del matrices seperately. You can set the cutoff for the percentage of samples that must have the CNV for a given bin for it to be considered part of an MCR.
+
+**Python script (find_cn_mcrs.py):**
+```Bash
+Given a matrix of CN counts for a binned genome, identify bins that have the cnv for a given percentage of samples.
+Merge them to identify minimal common regions between all the samples. Assumes the input file has a header.
+
+Usage: python3 find_cn_mcrs.py -i <input.bed> -o <output.bed> -s <percentage as decimal>
+
+Args:
+    -i input.bed (required) = A matrix containing the bins for the genome and a column for each sample defining whether
+    	or not the sample has a cnv for the bin.
+    -o output.bed (required) = Name of output file.
+    -p (optional) = Percentage of samples that must contain the cnv for a bin to be reported as a MCR. Default = 0.25.
+```
+
+**Actual use:**
+```Bash
+# Script requires bedtools, so load it up.
+module load bedtools2
+
+python /scratch/jandrews/bin/find_cn_mcrs.py -i FLDL_AMPS_MATRIX_1KB.bed -o FLDL_AMPS_1KB.bed
+python /scratch/jandrews/bin/find_cn_mcrs.py -i FLDL_DELS_MATRIX_1KB.bed -o FLDL_DELS_1KB.bed
 ```
 
 ---
