@@ -3,7 +3,7 @@
 **Up to date as of 05/04/2016.**  
 jared.andrews07@gmail.com
 
-> This version differs from the "old" version because it **treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis** in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the **"golden ticket"** CNVs by searching for minimal recurrent regions. Also gets into creating some figures to actually try to show the effects of the CNVs on the activity of SEs, lncRNAs, and MMPIDs.
+> This version differs from the "old" version because it **treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis** in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the **"golden ticket"** CNVs by searching for **minimal common regions**. Also gets into creating some figures to actually try to show the effects of the CNVs on the activity of SEs, lncRNAs, and MMPIDs.
 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE, lincRNA, and MMPID data. As with most things, this started off relatively simple and grew to be more complicated as results were analyzed and additional approaches tried.
 
@@ -231,18 +231,27 @@ for f in ./5KB_SPLIT_RESULTS/*.bed; do
 done
 ```
 
-The next few steps are going to be a bit wonky in that they don't necessarily have to be done in order. We're going to do **plotting** next, but the files we just created *will be used to find the MCRs* in a later step.
+The next few steps are going to be a bit wonky in that they don't __*necessarily*__ have to be done in order. We're going to do **plotting** next, but the files we just created *will be used to find the MCRs* in a later step.
 
 
-#### 5.) Plot the data.  
-The first three columns will be used as the row labels. The rest of the data will be used as the column labels. This script can be edited to change the aesthetics and size. Note that if you try to make enormous figs, you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly.
+#### 6.) Plot the data.  
+The first three columns will be used as the row labels. The rest of the data will be used as the column labels. This script can be edited to change the aesthetics and size. Note that if you try to make enormous figs, you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly. 
 
-**Python script (combine_bed_pos.py):**
+*Note: I had trouble getting the Seaborn package to run on the cluster, so I ran this locally.*
+
+**Note 2.0: The arrays didn't have probes for portions of certain chromosomes (chr13-15, 21, 22), so don't freak if these chunks are empty. Just crop them out of the plot since they're usually at the top.**
+
+**Python script (plot_cn_bins.py):**
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
 python /scratch/jandrews/bin/plot_cn_bins.py DL_AMPS_MATRIX_5KB.bed 
+
+cd 5KB_SPLIT_RESULTS
+for f in *.bed; do
+	python ../plot_cn_bins.py "$f"
+done
 ```
 
 ---
