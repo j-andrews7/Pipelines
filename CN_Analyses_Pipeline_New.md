@@ -33,7 +33,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Integrating SEs with CNVs by Cell Type](#integrate-se-data)
 - [Integrating Circuit Table Data to Filter MMPIDs in CNVs](#integrating-circuit-table-data-for-mmpids)
 - [Creating Boxplots of SE Signal on a Sample-by-Sample CNV Basis](#observe-se-signals-inside-and-outside-cnvs)
-- [Comparing lncRNA Expression in CNVs](#comparing-lncrna-expression-in-cnvs)
+- [Comparing lncRNA Expression in CNVs](#comparing-lincrna-expression-in-cnvs)
 
 ---
 
