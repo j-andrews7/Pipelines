@@ -1,6 +1,6 @@
 # CN Analysis 
 
-**Up to date as of 05/04/2016.**  
+**Up to date as of 05/09/2016.**  
 jared.andrews07@gmail.com
 
 > This version differs from the "old" version because it **treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis** in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the **"golden ticket"** CNVs by searching for **minimal common regions**. Also gets into creating some figures to actually try to show the effects of the CNVs on the activity of SEs, lncRNAs, and MMPIDs.
@@ -22,7 +22,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - This should be available on the CHPC cluster.
 - [Python3](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
-    -Some of the scripts for plotting use NumPy, matplotlib, seaborn, and pandas. I'm too lazy to post links, but just activating your virtualenv and using `pip install numpy`, etc should get these all installed very easily.
+    -Some of the scripts use NumPy, matplotlib, seaborn, pybedtools, and pandas. I'm too lazy to post links, but just activating your virtualenv and using `pip install numpy`, etc should get these all installed very easily.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
 - [Affymetrix Genotyping Console](http://www.affymetrix.com/estore/browse/level_seven_software_products_only.jsp?productId=131535#1_1)
