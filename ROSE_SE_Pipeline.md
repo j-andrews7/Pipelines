@@ -28,6 +28,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Determine Unique SEs](#determine-unique-ses)
 - [Get SE Signal](#get-se-signal-for-each-sample)
 - [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
+
 ---
 
 ## SE Calling
