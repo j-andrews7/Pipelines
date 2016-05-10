@@ -1,8 +1,8 @@
 # Super Enhancer Calling
 
-##### Last edited 04/22/2016
+**Last edited 05/09/2016**
 
-A super enhancer pipeline using ROSE - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easily be combined/piped together.
+A super enhancer pipeline using [ROSE](https://bitbucket.org/young_computation/rose) - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easily be combined/piped together.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
 
@@ -23,9 +23,14 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
   
+#### Sections  
+- [Calling the SEs](#se-calling)
+- [Determine Unique SEs](#determine-unique-ses)
+- [Get SE Signal](#get-se-signal-for-each-sample)
+- [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
 ---
 
-
+## SE Calling
 ##### 1A.) Sort BAMs first. 
 **Bash script (bam_sort.sh)**
 ```Bash
@@ -304,8 +309,8 @@ awk -F'\t' -vOFS='\t' '{ $4 = $4 "_MEMORY" }1' < TS081414_MEMORY_K27AC_ROSE_SEs_
 
 ---
 
-### Two different methods to determine "unique" SEs  
-The first takes into account overlap between SEs in different cell types, only calling those that overlap by **less than 25%** as unique. The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering. If the SEs overlap at all between samples, they will be merged.
+## Determine Unique SEs  
+The first method here takes into account overlap between SEs in different cell types, only calling those that overlap by **less than 25%** as unique. The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering. If the SEs overlap at all between samples, they will be merged.
 
 #### The first method (mine, recommended)  
 
@@ -481,7 +486,7 @@ python parse_multiinter_output.py All_SEs_multiinter.bed
 
 ---
 
-## Get Signal for Each SE for Each Sample
+## Get SE Signal for Each Sample
 
 The signal for each SE for each sample can be useful for calculating things like fold-change, determining significance, etc.
 
@@ -534,6 +539,7 @@ Within the folder for K27AC load of unique SEs for each cell type (4 in this cas
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
+
 python /scratch/jandrews/bin/calc_SE_signal.py <output.bed> <gff files>
 ```
 
@@ -562,3 +568,57 @@ shades <- c(seq(-6,2.25,length=1),seq(2.26,6,length=500))
 heatmap.2(no_21314_dm, density.info = "none", col=colorRampPalette(c("white","red4"))(500), margins = c(6,5), keysize = 1, cexRow = 0.6, cexCol = 0.7, trace="none", breaks=shades, main = "Unique Recurrent SEs vs Median Enhancer", key.xlab = "Log2(FC) of SE K27AC Signal over Median Enhancer", Rowv = FALSE, Colv=FALSE)
 ```
 
+---
+
+## Intersect with Broad K4ME3 Peaks
+A [recent paper](http://www.nature.com/ng/journal/v47/n10/full/ng.3385.html) found that broad K4ME3 peaks often mark tumor supressors and cell identity genes. In addition, they often overlap super enhancers. I want to see if this hold true for the SEs we identified. This section assumes you've already called the K4ME3 peaks and gone through the [SE calling](#se-calling). This analysis really **works best** when you have both the SEs and K4ME3 for each sample you're looking at, rather than kind of mashing different subsets together.
+
+#### 1.) Merge the K4ME3 peaks. 
+Move all the K4ME3_peaks.bed files into a new directory and run these commands.
+
+```Bash
+module load bedtools2
+
+for f in *.bed; do
+	sed -i '/chrY\|chrX\|chr23\|_g/d' "$f"
+done
+
+cat *.bed | cut -f1-3 - | sort -k1,1 -k2,2n - | bedtools merge -i - > K4ME3_merged_peaks.bed
+```
+
+#### 2.) Find top 5% (or whatever percent, 5% yields a lot of hits) by breadth.
+
+**Python script (rank_by_length.py):**
+```Bash
+"""
+Given a bed file, rank each feature by length and print the specified top percentage to an output file.
+
+Usage: python3 rank_by_length.py -i <input.bed> -o <output.bed> -p <percentage as decimal>
+
+Args:
+    -i input.bed (required) = A bed file.
+    -o output.bed (required) = Name of output file.
+    -p (optional) = Percentage of top hits to print to another output file. Default = 0.05.
+"""
+```
+
+**Actual use:**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+python /scratch/jandrews/bin/rank_by_length.py -i K4ME3_merged_peaks.bed -o K4ME3_merged_peaks_ranked_by_length.bed -p 0.05
+```
+
+#### 3.) Intersect SEs with the broad K4ME3 peaks.
+This will allow us to calculate percent of the K4ME3 peaks lying in SEs and vice versa.
+
+```Bash
+# Do for K4ME3 peaks first.
+ bedtools intersect -wb -a Recurrent_All_SEs.bed -b K4ME3_merged_peaks_ranked_by_length.TOP5PERC.bed | cut -f5-8 - | sort -k1,1 -k2,2 | uniq - > Recurrent_SEs_IN_K4ME3_Merged_Peaks_TOP5PERC.bed
+
+# Then the SEs.
+bedtools intersect -wa -a Recurrent_All_SEs.bed -b K4ME3_merged_peaks_ranked_by_length.TOP5PERC.bed | cut -f1-4 - | sort -k1,1 -k2,2 | uniq - > Recurrent_SEs_IN_K4ME3_Merged_Peaks_TOP5PERC.SEs.bed
+```
+
+Can now make charts or whatever you want. 
