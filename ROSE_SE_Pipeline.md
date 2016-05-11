@@ -1,6 +1,6 @@
 # Super Enhancer Calling
 
-**Last edited 05/09/2016**
+**Last edited 05/12/2016**
 
 A super enhancer pipeline using [ROSE](https://bitbucket.org/young_computation/rose) - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easily be combined/piped together.
 
@@ -32,7 +32,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 ---
 
 ## SE Calling
-##### 1A.) Sort BAMs first. 
+#### 1A.) Sort BAMs first. 
 **Bash script (bam_sort.sh)**
 ```Bash
 #!/bin/sh
@@ -54,7 +54,7 @@ module remove samtools-1.2
 ```
 
 
-##### 1B.) Then index:
+#### 1B.) Then index:
 **Bash script (bam_index.sh)**
 ```Bash
 #!/bin/sh
@@ -75,7 +75,7 @@ module remove samtools-1.2
 ```
 
 
-##### 2.) Place BAMs into batches.
+#### 2.) Place BAMs into batches.
 Do the same with any INPUT controls, but in a separate directory. Be sure the INPUT BAM and it's corresponding
 factor BAM are in a Batch directory with the same number, i.e. `./INPUT/BATCH1/sample1_input.sorted.bam` & 
 `./K27AC/BATCH1/sample1_k27ac.sorted.bam`. Put the factor bams with no control in a separate directory, i.e. 
@@ -84,7 +84,7 @@ factor BAM are in a Batch directory with the same number, i.e. `./INPUT/BATCH1/s
 This will make things much easier for peak calling later on. 
 
 
-##### 3.) Remove ENCODE blacklist regions.
+#### 3.) Remove ENCODE blacklist regions.
 [ENCODE](https://sites.google.com/site/anshulkundaje/projects/blacklists) found that ChIP-seq experiments are inherently enriched for huge numbers of reads in specific regions of the genome (usually regions with tons of repeats like near centromeres, telomeres, etc). They suggest removing these reads before calling peaks, but this is even more important for super enhancer calling for which the signal of a given peak is taken into account. Regions with artificially high signal can lead to false positives that can affect the SE curves in a big way, introducing additional noise into data that is already often difficult to decipher.
 
 **Bash script (bam_remove_blacklist.sh)**
@@ -116,11 +116,11 @@ module remove samtools-1.2
 ```
 
 
-##### 4.) Index the blacklist removed BAMs.
+#### 4.) Index the blacklist removed BAMs.
 Use the same script as above, just edit it slightly to grab the right files. 
 
 
-##### 5.) Call peaks with MACS.
+#### 5.) Call peaks with MACS.
 **Bash script (peak_call_bl_rmvd.sh and variations)**
 ```Bash
 #!/bin/sh
@@ -145,10 +145,10 @@ done
 wait
 ```
   
-##### 6.) Consolidate peaks.bed files from MACS into a single directory. 
+#### 6.) Consolidate peaks.bed files from MACS into a single directory. 
   
   
-##### 7.) Scrub 'em.
+#### 7.) Scrub 'em.
 Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample.
 
 ```Bash
@@ -160,7 +160,7 @@ for F in *.bed; do
 done
 ```
   
-##### 8.) Convert to gff format.
+#### 8.) Convert to gff format.
 These files will be used as the "enhancers" that are used by ROSE. If on the cluster, set appropriate version of python as default, not necessary if done locally.  
 **Python script (ROSE_bed2gff.py)**
 ```Bash
@@ -173,7 +173,7 @@ done
 ```
   
   
-##### 9.) Run ROSE. 
+#### 9.) Run ROSE. 
 `-t` specifies areas around the TSS to exclude peaks for stitching. Can be omitted if wanted. ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder before running again if you want to play with the settings.
 
 **Bash script (ROSE_ind.sh)**
@@ -205,7 +205,7 @@ module remove R
 ```
   
   
-##### 10A.) Annotate results.
+#### 10A.) Annotate results.
 Uses ref_seq annotations provided with ROSE.  
 **Bash script (ROSE_annotate.sh)**
 ```Bash
@@ -234,7 +234,7 @@ module remove R
 ```
   
   
-##### 10B.) Annotate with Gencode. 
+#### 10B.) Annotate with Gencode. 
 v19, genes only, from our master annotation files to retain info on lincs, etc.  
 **i.) First sort.**  
 **Bash script - (SE_sort.sh)**
@@ -276,7 +276,7 @@ module remove bedtools2
 ```
   
   
-##### 11.) Merge the two annotations.  
+#### 11.) Merge the two annotations.  
 This removes redundancies between the two annotations and creates a single file.  
 **Bash script (merge_SE_annotations.sh)**
 ```Bash
@@ -302,7 +302,7 @@ wait
 ```
   
   
-##### 12.) Conglomerate files.  
+#### 12.) Conglomerate files.  
 Copy the merged annotation file for each sample into a single directory. This is used for the first method below. Be aware that if your sample names have multiple underspaces in them (e.g., `TS102214_NAIVE`), you'll want to add back the suffix using awk for that file.
 ```BASH
 awk -F'\t' -vOFS='\t' '{ $4 = $4 "_MEMORY" }1' < TS081414_MEMORY_K27AC_ROSE_SEs_merged_sorted_annotations.bed > TS081414_MEMORY_K27AC_ROSE_SEs_merged_sorted_annotations.fixed.bed
@@ -313,9 +313,9 @@ awk -F'\t' -vOFS='\t' '{ $4 = $4 "_MEMORY" }1' < TS081414_MEMORY_K27AC_ROSE_SEs_
 ## Determine Unique SEs  
 The first method here takes into account overlap between SEs in different cell types, only calling those that overlap by **less than 25%** as unique. The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering. If the SEs overlap at all between samples, they will be merged.
 
-#### The first method (mine, recommended)  
+### The first method (mine, recommended)  
 
-##### 1.) Recurrently intersect, merge, and filter.  
+#### 1.) Recurrently intersect, merge, and filter.  
 This intersects all the SE files, **merging those that overlap by >25% of either element**. Has to be done several times to remove redundant overlaps. The idea is that SE_1 and SE_2 overlap, so it grabs the range for them. SE_1 and SE_3 also overlap, so it pulls the range for them as well. SE_2 and SE_3 **don't overlap**, so the range isn't pulled from them, but SE_1+SE_2 and SE_2+SE_3 overlap, so the second run through shores up that redundancy. It pulls the ranges of the overlaps first, then the sample column of the overlaps and pastes them together. The output file is then parsed to get SEs found in each cell type, unique to each cell type, and unique and recurrent to each cell type and pretty much every other comparison we could want here.
 
 **Bash script (bedops_full.sh)**
@@ -441,25 +441,25 @@ wait
 ```
 
 
-#### The second method (Patrick's):
+### The second method (Patrick's):
 
-##### 1.) For each cell type, cat and sort.
+#### 1.) For each cell type, cat and sort.
 This has to be done individually for each cell type.
 ```Bash
 cat *.bed | sort -k1,1 -k2,2n > CC_SEs_cat_sorted.bed
 ```
 
-##### 2.) Merge each SE list for each cell type.
+#### 2.) Merge each SE list for each cell type.
 ```Bash
 module load bedtools2
 mergeBed -i CC_CB_cat_sorted.bed -c 4 -o distinct > CC_CB_merged.bed
 ```
 
-##### (Optional, but recommended) 
+#### (Optional, but recommended) 
 Isolate only those SEs that are recurrent within a given cell type and BETWEEN INDIVIDUALS (e.g. an SE in CC and CB from same individual does not count as recurrent). Actually only looks at CC/CB right now, edit script to extend functionality if needed.
 >This is a **Major** drawback of this method, as you're removing SEs that aren't recurrent before filtering for those that are unique. This means a non-recurrent SE in a given cell type can't be used to filter non-unique SEs in other cell types (in which it may be recurrent).
 
-##### 2B.) Remove non-recurrent SEs for each cell type.
+#### 2B.) Remove non-recurrent SEs for each cell type.
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
@@ -469,14 +469,14 @@ done
 rename .bed.recurrent _recurrent.bed *.bed
 ```
 
-##### 3.) Multiintersect. 
+#### 3.) Multiintersect. 
 Move all the merged files into a new directory and intersect them all. Clean up the header afterward if needed.
 ```Bash
 module load bedtools2
 bedtools multiinter -cluster -header -i *.bed > All_SEs_multiinter.bed
 ```
 
-##### 4.) Get 'Unique' SEs.
+#### 4.) Get 'Unique' SEs.
 Parses each unique record to its specific sample file. Will produce a file for each data column containing the positions of the unique SEs for the column (each cell type in this case.)
 
 ```Bash
@@ -491,7 +491,7 @@ python parse_multiinter_output.py All_SEs_multiinter.bed
 
 The signal for each SE for each sample can be useful for calculating things like fold-change, determining significance, etc.
 
-##### 1.) Convert the BED file for All_SEs to GFF format. 
+#### 1.) Convert the BED file for All_SEs to GFF format. 
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
@@ -500,7 +500,7 @@ for f in *.bed; do
 done
 ```
 
-##### 2.) Get load at each SE for each file.
+#### 2.) Get load at each SE for each file.
 Move the GFF files into a new folder and run below script to get RPM'd K27AC load for each sample at each unique SE position. '-r' options gives RPM results, `-m 1` is required for the script to run properly (sets the bin size to 1, apparently running this outside of the main ROSE script means the default (1) isn't set so we have to do it manually).  
 
 > This can be finicky and at times will randomly not run on the cluster if run as a job (**literally** no idea why). Just run from within the rose bin folder if so - copy and paste commands from here.
@@ -533,7 +533,7 @@ module remove samtools-1.2
 module remove R
 ```
 
-##### 3.) Calculate signal at each SE.
+#### 3.) Calculate signal at each SE.
 Within the folder for K27AC load of unique SEs for each cell type (4 in this case), run script to calculate signal from the RPM values in each GFF file. **(signal = RPM (density) * length of SE)**. This is how ROSE calculates it. This script will take each file in the folder and essentially intersect them, yielding a single file in BED-type format with the K27AC signal for each sample at each SE so that they may be easily plotted/manipulated. It will also add an SE_ID for each SE to the 4th column for easy reference later. I create a folder for 'Included' samples and 'Excluded' ones, as the previous step gets the load for **all the BAMs**, many of which I don't care about since their SEs were ignored anyway.
 
 **Python script (calc_SE_signal.py)**
@@ -544,13 +544,23 @@ source activate anaconda
 python /scratch/jandrews/bin/calc_SE_signal.py <output.bed> <gff files>
 ```
 
-Now you can do whatever you like with the table you have. Below is a method I've used to determine how "unique" each SE is (hint: **not very**). It's tough to determine if an SE "specific" to a given cell type is just barely missing the cutoff in samples of another cell type. This approach *tries* to give an idea of this, but it's not a perfect way to do so.
+#### 4.) Quantile normalize (semi-optional).
+This helps compare between samples. Definitely recommend doing this before comparing signal that lie inside/outside CNVs, for example. This script **relies on a package (rpy2) that can't be installed on the cluster**. As such, you need to run it locally. It will ask you to define where the data columns begin.
 
-##### 4.) Plot data.
+**Python script (quantile_normalize.py):**
+```Bash
+python /scratch/jandrews/bin/quantile_normalize.py RECURRENT_FLDL_CCCB_ONLY_SE_SIGNAL.py
+```
+
+Now you can do whatever you like with the table you have. Calculating p-values using t-tests in Excel is **probably the easiest/most useful way forward**. It will tell you which SEs are significantly different between the various groups.
+
+Below is an **old method** I've used to determine how "unique" each SE is (hint: **not very**). It's tough to determine if an SE "specific" to a given cell type is just barely missing the cutoff in samples of another cell type. This approach *tries* to give an idea of this, but it's not a perfect way to do so. The p-value approach above is probably easier, realistically.
+
+#### 5.) Plot data.
 Create a line graph with each SE as a data series, plotting a line for each SE showing signal in each sample will help you determine how "unique" they really are. I like to take the signal from the Unique SEs of each cell type for each sample, copy them into excel, and calculate the log2(FC) of K27AC signal for each SE over the median enhancer for that sample. Figure out the median enhancer for each sample from the all_enhancer output table from ROSE - includes the signal so you can use to it calculate foldchange. Can then smash these FC ratios for the SEs unique to each cell type together and create a heatmap in R. This gives a better representation of how "unique" the calls really are, as it's comparing within the samples themselves.
 
 
-##### 5.) Create said heatmap in R. 
+#### 6.) Create said heatmap in R. 
 Keep Rowv = False to keep rows in order. I usually save several variations of each heatmap.  
 
 ```R
