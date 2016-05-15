@@ -1,7 +1,31 @@
-ChIP-SEQ Pipeline
+# ChIP-SEQ Pipeline
 
-This document describes the bioinformatics pipeline used to analyze the Payton Lab's normal B cell ChIP-Seq samples for a variety of chromatin marks (mostly K27AC and k4ME3). The .bin and peaks.bed files can be handled separately until the last portion of the pipeline in which they are normalized and merged. Some of these commands are not strictly necessary (viewing bigwig files on UCSC, fastq-dump, etc), but may be useful, particularly for handling/verifying external data. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. Learn sed & awk to do these. This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.
+This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. The .bin and peaks.bed files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. Learn sed & awk to do these. This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.
 
+This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
+
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
+
+All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
+They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
+
+An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
+
+**Software Requirements:**
+- [Samtools](http://www.htslib.org/)  
+  - This should be available on the CHPC cluster.
+- [Python3](https://www.python.org/downloads/)
+  - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
+- [bedtools](http://bedtools.readthedocs.org/en/latest/)
+  - Also available on the CHPC cluster.
+- [Perl](https://www.perl.org/)
+  - For old legacy scripts. Disgusting, I know. Will replace with python in time.
+  
+#### Sections  
+- [Calling the SEs](#se-calling)
+- [Determine Unique SEs](#determine-unique-ses)
+- [Get SE Signal](#get-se-signal-for-each-sample)
+- [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
 
 ####-File Conversions-####
 --Download and convert SRA file to fastq file
@@ -21,11 +45,6 @@ samtools index <test.bam>
 
 --Pipeline from SRA to BAM combined commands
 fastq-dump <SRA accession> && bowtie2 -p3 -x <path to genome index files and prefix> <fastqfile.fastq> > <output.sam> && samtools view -bS <file.sam> > <file.bam> && samtools sort <file.bam> <file> && samtools index <file.bam>
-
-
-***IMPORTANT***
-If the data is from the SOLiD platform, it is garbage and you will not be able to get squat from it. Don't bother even trying.
-
 
 
 ####-Peak Calling-####
@@ -56,9 +75,6 @@ batchParallel.pl findPeaks none -o auto -style histone -size 1000 -minDist 2500 
 #Normalization is a problem with HOMER. Can use it for peak annotations, etc, but not recommended for actual peak calling.
 
 
-
-##-ROSE for SE Calling (CHPC)-##
-See ROSE_SE_pipeline.txt.
 
 
 
@@ -119,8 +135,7 @@ samtools view -c HG00173.chrom11.ILLUMINA.bwa.FIN.low_coverage.20111114.bam
 
 --Use read counts from previous step to normalize by RPM for each sample name in the combined_bins file for each mark: use chrcoords_mark_BINS_sort_chr.bin files
 perl Calculating_RPM_forchipseq_calc_JAedit.pl <input.bin with data starting in 4th column> <output file>
-NOTE: Must edit the hash in the beginning of this script to add your sample names and the number of aligned reads in each. May also have to adjust 
-the column in which data begins for the file within the script. 
+NOTE: Must edit the hash in the beginning of this script to add your sample names and the number of aligned reads in each. May also have to adjust the column in which data begins for the file within the script. 
 
 
 
@@ -134,16 +149,11 @@ python3 rename_columns.py <MACS14_peak.bed files>
 NOTE: filename format MUST be samplename_celltype,etc_histonemark... .bed
 May just want to edit these as necessary
 
---Rename 4th column in MACS14_peak.bed files to contain the sample name and mark. 
-python3 rename_columns_second.py <MACS14_peak.bed files>
-NOTE: filename format MUST be samplename_histonemark... .bed
-May just want to edit these as necessary
-
 --Concatenate all bed files in a directory
 cat *.bed > output.bed
 
 --delete lines containing _g random genomic, M chromosome, Y chromosome loci
-(sed '/_g/d' file.bed | sed '/chrM/d' | sed '/chrY/d') > output.bed
+sed '/_g\|chrY\|chrX\|chr23/d' file.bed  > output.bed
 
 --Keep only first 4 columns of bed file
 cut -f 1-4 file.bed>file.bed
