@@ -282,7 +282,18 @@ python /scratch/jandrews/bin/find_cn_mcrs.py -i FLDL_AMPS_MATRIX_1KB.bed -o FLDL
 python /scratch/jandrews/bin/find_cn_mcrs.py -i FLDL_DELS_MATRIX_1KB.bed -o FLDL_DELS_1KB.bed
 ```
 
-Can take these output and intersect with lncRNAs, SEs, MMPIDs, etc.
+Can take these output and intersect with lncRNAs, SEs, MMPIDs, etc. Can also make some plots from the frequencies of these.
+
+#### 8.) Plot histograms for recurrence of MCR bins across samples.
+This script will essentially take an AMP or DEL matrix, sum the line, take the absolute value of the sum, and create a list containing the sum for each bin. Then it will just make a histogram from it, allowing you to see how common it is for a bin to be altered in say, 6 samples. Edit the script for color/labels if wanted. It'll also print out the table with the summed column. The histogram image will have the same name as `output.bed`, just with a `.png` extension.
+
+**Python script (hist_from_cn_matrix.py):**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+python3 hist_from_cn_matrix.py matrix.bed output.bed
+```
 
 ---
 
