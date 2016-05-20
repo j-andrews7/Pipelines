@@ -1,8 +1,8 @@
 # ChIP-SEQ Pipeline
 
-This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. The .bin and peaks.bed files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. Learn sed & awk to do these. This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.
+This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. The .bin and peaks.bed files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.**
 
-This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
+This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
 > Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
 
@@ -14,22 +14,31 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 **Software Requirements:**
 - [Samtools](http://www.htslib.org/)  
   - This should be available on the CHPC cluster.
-- [Python3](https://www.python.org/downloads/)
+- [Python3 & 2.7](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
+  - MACS requires Python 2.7.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
 - [Perl](https://www.perl.org/)
   - For old legacy scripts. Disgusting, I know. Will replace with python in time.
+- [MACS 1.4](http://liulab.dfci.harvard.edu/MACS/)
+  - MACS is our peak caller of choice. There are tons of them out there, but it's a pretty popular one.
+- [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
+  - This isn't necessary if you already have aligned BAMs that you're working from.
+- [R](https://www.r-project.org/)
+  - One or two of the python scripts invoke some R code.
+  - May also need the preprocessCore package installed. Just use R studio.
   
 #### Sections  
-- [Calling the SEs](#se-calling)
+- [Preprocessing and Peak Calling](#peak-calling)
 - [Determine Unique SEs](#determine-unique-ses)
 - [Get SE Signal](#get-se-signal-for-each-sample)
 - [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
 
-####-File Conversions-####
---Download and convert SRA file to fastq file
-fastq-dump <SRA accession>
+---
+
+## Peak Calling
+This section walks through aligning the fastQ files to the genome, sorting and indexing the bam files, and actually calling the peaks.
 
 --Convert fastq file to bam file
 bowtie2 -p 3 -x <path to genome index files and prefix> <fastq file.fastq> > <output file.sam>
