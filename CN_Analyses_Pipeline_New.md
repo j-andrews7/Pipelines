@@ -223,8 +223,9 @@ Some of the chromosomes (13-15, 21, 22, etc) don't have probes for pretty big re
 module load bedtools2 
 
 for f in *.bed; do
-	bedtools intersect -v -a "$f" -b /scratch/jandrews/Ref/hg19_cn_exclusion_regions.bed > "$f".exclude
+	bedtools intersect -v -a "$f" -b /scratch/jandrews/Ref/hg19_cn_exclusions.bed > "$f".exclude
 	rename .bed.exclude .bed "$f".exclude
+done
 ```
 
 #### 6.) Add a header.
