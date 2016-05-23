@@ -3,9 +3,7 @@
 **Last edited 05/23/2016.**  
 jared.andrews07@gmail.com
 
-> This version differs from the "old" version because it **treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis** in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the **"golden ticket"** CNVs by searching for **minimal common regions**. Also gets into creating some figures to actually try to show the effects of the CNVs on the activity of SEs, lncRNAs, and MMPIDs.
-
-The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays. These are then intersected with CNAs identified in other publications or with our SE, lincRNA, and MMPID data. As with most things, this started off relatively simple and grew to be more complicated as results were analyzed and additional approaches tried.
+The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays, determine minimal common regions between them, make some pretty figures, and integrate them with our other data sets (SEs, lncRNAs, REs, etc). As with most things, this started off relatively simple and grew to be more complicated as results were analyzed and additional approaches tried.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
 
