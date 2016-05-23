@@ -217,7 +217,17 @@ for chr in `cut -f 1 FLDL_CN_MATRIX_5KB.bed | uniq`; do
 done
 ```
 
-#### 5.) Add a header.
+#### 5.) Remove regions near centromeres/with no probes.
+Some of the chromosomes (13-15, 21, 22, etc) don't have probes for pretty big regions from the beginning of the chromosome to the centromere. The areas near the centromeres can also throw false positives, so I typically remove the bins in these areas.
+```Bash
+module load bedtools2 
+
+for f in *.bed; do
+	bedtools intersect -v -a "$f" -b /scratch/jandrews/Ref/hg19_cn_exclusion_regions.bed > "$f".exclude
+	rename .bed.exclude .bed "$f".exclude
+```
+
+#### 6.) Add a header.
 These will be used as columns for plotting. It's also nice to know what's in a file.
 ```Bash
 for f in *MATRIX*; do
@@ -234,7 +244,7 @@ done
 The next few steps are going to be a bit wonky in that they don't __*necessarily*__ have to be done in order. We're going to do **plotting** next, but the files we just created *will be used to find the MCRs* in a later step.
 
 
-#### 6.) Plot the data.  
+#### 7.) Plot the data.  
 The first three columns will be used as the row labels. The rest of the data will be used as the column labels. This script can be edited to change the aesthetics and size. Note that if you try to make enormous figs, you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly. Adding lines between the columns/chromosomes, etc, in photoshop or powerpoint is helpful, and you'll probably want to relabel the columns.
 
 *Note: I had trouble getting the Seaborn package to run on the cluster, so I ran this locally.*
@@ -254,7 +264,7 @@ for f in *.bed; do
 done
 ```
 
-#### 7.) Go back and find the MCRs.
+#### 8.) Go back and find the MCRs.
 I use bin sizes of 1kb for this, though you could go even smaller if you wanted even greater resolution. This is done for the amp and del matrices seperately. You can set the cutoff for the percentage of samples that must have the CNV for a given bin for it to be considered part of an MCR.
 
 **Python script (find_cn_mcrs.py):**
@@ -284,7 +294,7 @@ python /scratch/jandrews/bin/find_cn_mcrs.py -i FLDL_DELS_MATRIX_1KB.bed -o FLDL
 
 Can take these output and intersect with lncRNAs, SEs, MMPIDs, etc. Can also make some plots from the frequencies of these.
 
-#### 8.) Plot histograms for recurrence of MCR bins across samples.
+#### 9.) Plot histograms for recurrence of MCR bins across samples.
 This script will essentially take an AMP or DEL matrix, sum the line, take the absolute value of the sum, and create a list containing the sum for each bin. Then it will just make a histogram from it, allowing you to see how common it is for a bin to be altered in say, 6 samples. Edit the script for color/labels if wanted. It'll also print out the table with the summed column. The histogram image will have the same name as `output.bed`, just with a `.png` extension.
 
 **Python script (hist_from_cn_matrix.py):**
