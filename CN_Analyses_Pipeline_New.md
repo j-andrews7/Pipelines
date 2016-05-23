@@ -1,6 +1,6 @@
 # CN Analysis 
 
-**Up to date as of 05/09/2016.**  
+**Last edited 05/23/2016.**  
 jared.andrews07@gmail.com
 
 > This version differs from the "old" version because it **treats the CNVs on a sample-by-sample basis for the MMPID/Circuit analysis** in order to keep them as small as possible (i.e. it doesn't merge them together for samples of a given cell type). It also tries to find the **"golden ticket"** CNVs by searching for **minimal common regions**. Also gets into creating some figures to actually try to show the effects of the CNVs on the activity of SEs, lncRNAs, and MMPIDs.
