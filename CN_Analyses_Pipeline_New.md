@@ -216,7 +216,7 @@ done
 ```
 
 #### 5.) Remove regions near centromeres/with no probes.
-Some of the chromosomes (13-15, 21, 22, etc) don't have probes for pretty big regions from the beginning of the chromosome to the centromere. The areas near the centromeres can also throw false positives, so I typically remove the bins in these areas.
+Some of the chromosomes (13-15, 21, 22, etc) don't have probes for pretty big regions from the beginning of the chromosome to the centromere. The areas near the centromeres can also throw false positives, so I typically remove the bins in these areas. Do this for both the big matrix file and the individual chromosome files.
 ```Bash
 module load bedtools2 
 
@@ -248,13 +248,10 @@ The first three columns will be used as the row labels. The rest of the data wil
 
 *Note: I had trouble getting the Seaborn package to run on the cluster, so I ran this locally.*
 
-**Note 2.0: The arrays didn't have probes for portions of certain chromosomes (chr13-15, 21, 22), so don't freak if these chunks are empty. Just crop them out of the plot since they're usually at the top.**
+**Note 2.0: Remember that we removed regions with no probes in the arrays when going back to label these.**
 
 **Python script (plot_cn_bins.py):**
 ```Bash
-export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-source activate anaconda
-
 python /scratch/jandrews/bin/plot_cn_bins.py DL_AMPS_MATRIX_5KB.bed 
 
 cd 5KB_SPLIT_RESULTS
@@ -298,8 +295,6 @@ This script will essentially take an AMP or DEL matrix, sum the line, take the a
 
 **Python script (hist_from_cn_matrix.py):**
 ```Bash
-export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-source activate anaconda
 
 python3 hist_from_cn_matrix.py matrix.bed output.bed
 ```
