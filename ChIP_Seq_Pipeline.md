@@ -40,20 +40,115 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 ## Peak Calling
 This section walks through aligning the fastQ files to the genome, sorting and indexing the bam files, and actually calling the peaks.
 
---Convert fastq file to bam file
-bowtie2 -p 3 -x <path to genome index files and prefix> <fastq file.fastq> > <output file.sam>
+#### 1.) Create bowtie indexes if necessary.
+These are necessary for bowtie to work properly. Download your `genome.fa` for your organism/reference of choice and run the build command on it. The second argument is just the prefix to attach to the index files.
+```Bash
+bowtie2-build hg19.fa hg19
+```
 
---Convert sam to bam
-samtools view -bS <file.sam> > <file.bam>
+#### 2.) Align fastQs then sort and index BAMs.
+I like to use an interactive job on the CHPC cluster for this.
 
---Sort bam files
-samtools sort <file.bam> <file_sorted>
+```Bash
+qsub -I -l nodes=1:ppn=8,walltime=15:00:00,vmem=16gb
+module load bowtie2
+module load samtools-1.2
 
---Index bam files
-samtools index <test.bam> 
+for f in *.fastq; do
+  bowtie2 -p 8 -x /scratch/jandrews/Ref/hg19 -U "$f" | samtools view -bS - | samtools sort - > ${f%.*}.sorted.bam ;
+  samtools index ${f%.*}.sorted.bam
+done
+```
 
---Pipeline from SRA to BAM combined commands
-fastq-dump <SRA accession> && bowtie2 -p3 -x <path to genome index files and prefix> <fastqfile.fastq> > <output.sam> && samtools view -bS <file.sam> > <file.bam> && samtools sort <file.bam> <file> && samtools index <file.bam>
+#### 3.) Place BAMs into batches.
+Do the same with any INPUT controls, but in a separate directory. Be sure the INPUT BAM and it's corresponding
+factor BAM are in a Batch directory with the same number, i.e. `./INPUT/BATCH1/sample1_input.sorted.bam` & 
+`./K27AC/BATCH1/sample1_k27ac.sorted.bam`. Put the factor bams with no control in a separate directory, i.e. 
+`./K27AC/NO_CTRL/BATCH1/sample_wNo_ctrl_k27ac.sorted.bam`.
+
+This will make things much easier for peak calling later on. 
+
+
+#### 4.) Remove ENCODE blacklist regions.
+[ENCODE](https://sites.google.com/site/anshulkundaje/projects/blacklists) found that ChIP-seq experiments are inherently enriched for huge numbers of reads in specific regions of the genome (usually regions with tons of repeats like near centromeres, telomeres, etc). They suggest removing these reads before calling peaks, but this is even more important for super enhancer calling for which the signal of a given peak is taken into account. Regions with artificially high signal can lead to false positives that can affect the SE curves in a big way, introducing additional noise into data that is already often difficult to decipher.
+
+**Bash script (bam_remove_blacklist.sh)**
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N RM_BLACKLIST_REGIONS
+
+#PBS -m e
+
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=32gb
+
+module load samtools-1.2
+
+for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch*/; do
+
+	cd "$fold"
+	for f in *.bam; do
+		echo "$f"
+		base=${f##/*}
+		samtools view -b -t /home/jandrews/Ref/hg19.fa -L /home/jandrews/Ref/hg19_blacklist_regions_removed.bed -o "${base%.*}".BL_removed.bam "$f" &
+	done
+	wait
+	
+done
+wait
+module remove samtools-1.2
+```
+
+
+#### 5.) Index the blacklist removed BAMs.
+Same command used previous.  
+
+
+#### 6.) Call peaks with MACS.
+Ensure the `--shiftsize` option is appropriate for your data. For FAIRE I use `--shiftsize=50`, for K4ME3 `--shiftsize=100`, and for other histone marks I use `--shiftsize=150`. For TFs, I usually see things in the `--shiftsize=50 to 100` range, but it's probably worth trying to read more about it. Or trying to let MACS figure out the shiftsize itself (remove the `--nomodel` & `--shiftsize` options).
+
+**Bash script (peak_call_bl_rmvd.sh and variations)**
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N PEAK_CALL_BL_RMVD_22
+#PBS -m e
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=36gb
+
+batch=Batch22/
+mark=_K27AC
+treat_suffix=.sorted.BL_removed.bam
+control_suffix=_INPUT.sorted.bam
+treat=/scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/
+control=/scratch/jandrews/Data/ChIP_Seq/BAMs/INPUT/
+
+for f in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/"$batch"/*"$treat_suffix"; do
+	base=${f##*/}
+	samp=${base%%_*}
+	macs14 -t "$f" -c "$control""$batch""$samp""$control_suffix" -f BAM -g hs -n /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/"$samp""$mark" -w -S --nomodel --shiftsize=150 &
+done
+wait
+```
+  
+## Peaks Processing
+This section explains how to handle the `peaks.bed` files that are output from MACs. It's really just a matter of cleaning the data up and merging the peaks for all the samples.
+
+#### 7.) Consolidate peaks.bed files from MACS into a single directory. 
+  
+  
+#### 8.) Scrub 'em.
+Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample.
+
+```Bash
+for F in *.bed; do
+	base=${F##*/}
+	(sed '/_g\|chrM\|chrY\|chrX\|chr23/d' "$F" | cut -f 1-4) > ${base%.*}.clean.bed ;
+	cut -f 1-4 ${base%.*}.clean.bed > "$F"
+	rm ${base%.*}.clean.bed
+done
+```
 
 
 ####-Peak Calling-####
