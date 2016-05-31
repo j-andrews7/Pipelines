@@ -31,8 +31,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   
 #### Sections  
 - [Preprocessing and Peak Calling](#peak-calling)
-- [Determine Unique SEs](#determine-unique-ses)
-- [Get SE Signal](#get-se-signal-for-each-sample)
+- [Peak Processing](#peak-processing)
+- [Binning and Normalization](#binning-and-normalization)
 - [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
 
 ---
@@ -131,14 +131,16 @@ for f in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/"$batch"/*"$treat_suffix"; d
 done
 wait
 ```
+
+I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called is indicative of crappy sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. 
   
 ## Peaks Processing
 This section explains how to handle the `peaks.bed` files that are output from MACs. It's really just a matter of cleaning the data up and merging the peaks for all the samples.
 
-#### 7.) Consolidate peaks.bed files from MACS into a single directory. 
+#### 1.) Consolidate peaks.bed files from MACS into a single directory for a given mark/TF. 
   
   
-#### 8.) Scrub 'em.
+#### 2.) Scrub 'em.
 Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample.
 
 ```Bash
@@ -150,33 +152,6 @@ for F in *.bed; do
 done
 ```
 
-
-####-Peak Calling-####
-
-###MACS
---For other marks - calls peaks
-macs14 -t <treated file> -c <control file> -f BAM -g <genome prefix - hs, mm> -n NAME -w -S --nomodel --shiftsize=150
-
---For K4ME3 - calls peaks
-macs14 -t <treated file> -c <control file> -f BAM -g <genome prefix - hs, mm> -n NAME -w -S --nomodel --shiftsize=100
-
---For FAIRE - calls peaks
-macs14 -t <treated file> -c <control file> -f BAM -g hs -n NAME -w -S --nomodel --shiftsize=50
-
-
-###HOMER
-#Make tag directories from all alignment files. Must have samtools installed if using .bam format.
-batchMakeTagDirectory.pl <keyFile> -genome hg19 [options]
-
-# make UCSC files for all directories
-batchParallel.pl makeUCSCfile none -o auto -f *TagDir/
-
-# find peaks for all directories
-batchParallel.pl findPeaks none -o auto -style histone -size 1000 -minDist 2500 -fdr 0.005 -f *TagDir/
--Can alter minDist (size required between peaks) and size (of peaks) in order to get data in a form that you want
--These parameters give pretty good peak overlap with the MACS settings above.
-
-#Normalization is a problem with HOMER. Can use it for peak annotations, etc, but not recommended for actual peak calling.
 
 
 
@@ -195,7 +170,7 @@ wigToBigWig <inputwig.gz> <genome.chrom.sizes> <myBigWig.bw>
 bigWigToWig in.bigWig out.wig
 
 --Trackline for typical bigwig file loading to UCSC
-track name=<name> type=bigWig bigDataUrl=http://pathresearch.wustl.edu/paytonlab/H3K4ME3/TsB/filename.bw
+track name=<name> type=bigWig bigDataUrl=http://example.path.edu/filename.bw
 
 --To create bedgraphs from normalized files for UCSC
 #browser position is where track will start in genome by default. below is CD69
