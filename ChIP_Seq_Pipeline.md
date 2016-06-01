@@ -2,7 +2,7 @@
 **Last updated 05/31/2016**  
 Author: jared.andrews07@gmail.com  
 
-This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. The .bin and peaks.bed files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.**
+This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.**
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
@@ -143,7 +143,7 @@ This section explains how to handle the `peaks.bed` files that are output from M
   
   
 #### 2.) Scrub 'em.
-Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample.
+Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample. Replaces the 4th column with the actual sample name. 
 
 ```Bash
 for F in *.bed; do
@@ -157,7 +157,8 @@ done
 
 
 
-
+## Binning and Normalization
+This section process the wig files to get the load for each sample across the genome in bins.
 
 ####-Wig to Bigwig & Reverse for Visualization of Peaks on genome browser-####
 #Done to spot check data quality
