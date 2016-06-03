@@ -29,7 +29,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - This isn't necessary if you already have aligned BAMs that you're working from.
 - [R](https://www.r-project.org/)
   - One or two of the python scripts invoke some R code.
-  - May also need the preprocessCore package installed. Just use R studio.
+  - May also need the preprocessCore package installed. Just use R studio to install.
   
 #### Sections  
 - [Preprocessing and Peak Calling](#peak-calling)
@@ -167,6 +167,39 @@ module load bedtools2
 bedtools merge -c 4 -o distinct,count_distinct -i catsort_peaks.bed > merged_peaks.bed
 ```
 
+#### 4.) Add the mark ID to the 4th column.
+This script adds the given ID to the 4th column. I usually add the histone (or TF, I suppose).
+```Bash
+perl Add_XID_tocol.pl merged_peaks.bed merged_peaks_ID.bed
+args: <Mark_ID> 4 1
+```
+
+#### 4.b) (Optional) Add MMPID to the 4th column.
+If you want to merge these peaks with peaks from another mark or factor, you can assign an MMPID to them now. This script is quite old and probably needs to be edited due to changes made earlier in the pipeline, as it adds counts as well. This step may be extraneous at this point, keeping it here for historical purposes.
+
+NOTE: Make sure delimiter for fourth column list is a "," and that format of each entry is "samplename_mark".
+
+**Python script (add_MMPID_count_marks.py):**
+```Bash
+python3 add_MMPID_count_marks.py input.bed output.bed
+```
+
+#### 5.) Bin the genome.
+We need to create bins for the resolution we want to calculate RPM, do normalizations with, etc. Previously, we've done 200 bp bins, but I don't care how big the files are, so I'm doing 50 bp here. Just change the number after `-chop` to change the bin sizes. The `hg19.bed` file just contains the range of each chromosome - `chr1	0	249250621`, etc. The `awk` tidbit just numbers each line, effectively giving each bin an ID.
+
+```Bash
+bedops -chop 50 -x hg19.bed | awk '{ print $0 "\t" FNR }' > hg19.50b_bins.bed
+```
+
+#### 6.) Intersect the merged peak file with the binned genome.
+Also going to go ahead and cut a bunch of columns, grabbing only the ones for the position, bin #, and mark ID.
+```Bash
+module load bedtools2
+
+bedtools intersect -wa -wb -a hg19.50b_bins.bed -b merged_peaks_ID.bed  | cut -f1-4,8 - > merged_peaks_bins_intersect.bed
+```
+
+Now we can set this file aside while we normalize the actual signal for each sample.
 
 ## Binning and Normalization
 This section process the wig files to get the load for each sample across the genome in bins.
