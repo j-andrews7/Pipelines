@@ -80,9 +80,7 @@ This will make things much easier for peak calling later on.
 
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N RM_BLACKLIST_REGIONS
-
 #PBS -m e
-
 #PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=32gb
 
 module load samtools-1.2
@@ -143,17 +141,21 @@ This section explains how to handle the `peaks.bed` files that are output from M
   
   
 #### 2.) Scrub 'em.
-Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample. Replaces the 4th column with the actual sample name. 
+Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample. The python script replaces the 4th column with the actual sample name. 
 
 ```Bash
 for F in *.bed; do
 	base=${F##*/}
-	(sed '/_g\|chrM\|chrY\|chrX\|chr23/d' "$F" | cut -f 1-4) > ${base%.*}.clean.bed ;
+	sed '/_g\|chrM\|chrY\|chrX\|random\|chr23/d' "$F" | cut -f 1-4 | sort -k1,1 -k2,2n - > ${base%.*}.clean.bed ;
 	cut -f 1-4 ${base%.*}.clean.bed > "$F"
 	rm ${base%.*}.clean.bed
 done
+
+python rename_columns.py *.clean.bed
 ```
 
+#### 3.) Concatenate and merge the peak files.
+This merges overlapping peaks between samples so that we end up with just one set of genomic positions for the peaks.
 
 
 
