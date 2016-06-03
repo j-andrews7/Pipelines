@@ -188,7 +188,7 @@ python3 add_MMPID_count_marks.py input.bed output.bed
 We need to create bins for the resolution we want to calculate RPM, do normalizations with, etc. Previously, we've done 200 bp bins, but I don't care how big the files are, so I'm doing 50 bp here. Just change the number after `-chop` to change the bin sizes. The `hg19.bed` file just contains the range of each chromosome - `chr1	0	249250621`, etc. The `awk` tidbit just numbers each line, effectively giving each bin an ID.
 
 ```Bash
-bedops -chop 50 -x hg19.bed | awk '{ print $0 "\t" FNR }' > hg19.50b_bins.bed
+bedops -chop 50 hg19.bed | awk '{ print $0 "\t" FNR }' > hg19.50b_bins.bed
 ```
 
 #### 6.) Intersect the merged peak file with the binned genome.
@@ -202,42 +202,16 @@ bedtools intersect -wa -wb -a hg19.50b_bins.bed -b merged_peaks_ID.bed  | cut -f
 Now we can set this file aside while we normalize the actual signal for each sample.
 
 ## Binning and Normalization
-This section process the wig files to get the load for each sample across the genome in bins.
+This section shows how to process the wig files output from MACS to get the load for each sample across the genome.
 
-####-Wig to Bigwig & Reverse for Visualization of Peaks on genome browser-####
-#Done to spot check data quality
+#### 1.) Bin the wig files. 
+This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have.
 
---Create genome.chrom.sizes
-fetchChromSizes <db (hg19, etc)> > <db>.chrom.sizes
+**Perl script (bin_whole_genome_wig.pl):**
 
---Convert wig to bigwig
-wigToBigWig <inputwig.gz> <genome.chrom.sizes> <myBigWig.bw>
-
---Convert bigwig to wig
-bigWigToWig in.bigWig out.wig
-
---Trackline for typical bigwig file loading to UCSC
-track name=<name> type=bigWig bigDataUrl=http://example.path.edu/filename.bw
-
---To create bedgraphs from normalized files for UCSC
-#browser position is where track will start in genome by default. below is CD69
-#color is R,G,B
-#can't get priority to work for ordering tracks
-#autoscale off so that each track is scaled to same y axis limits
-#viewLimits y axis min and max
-
-browser position chr12:9896666-9921913 
-track type=bedGraph name=T174_K27ACQN description=T174_K27ACQN visibility=2 color=200,0,0 altColor=0,100,200 priority=10 autoScale=off alwaysZero=off gridDefault=on graphType=bar viewLimits=0:3
-#Note: Alternatively, the scripts detailed below now have the capability of manually creating bedgraph files for you.
-
-#Copy and paste data from file with no header here.
-
-
-
-####-MACS Bin Files Processing-####
---bin wig peak file into 200bp bins using perl script
-bin_whole_genome_jpedit_spedit_jaedit.pl <peaks.wig files> 
-note: must have hg19.chrom_sizes_trimmed file in same folder
+```Bash
+bin_whole_genome_wig.pl *peaks.wig 
+```
 
 --combine .bin files into 1 txt file for a given mark
 python3 combine_bins.py <input directory> <output.txt>
@@ -264,29 +238,6 @@ perl Calculating_RPM_forchipseq_calc_JAedit.pl <input.bin with data starting in 
 NOTE: Must edit the hash in the beginning of this script to add your sample names and the number of aligned reads in each. May also have to adjust the column in which data begins for the file within the script. 
 
 
-
-
-####-MACS Bed Files Processing-####
-
-
-
---For merging of all merged peak files, add MMPID for each line to the fourth column. Place count of unique marks for the region in 6th column
-python3 add_MMPID_count_marks.py <input.bed> <output.bed>
-NOTE:Make sure delimiter for fourth column list is a "," and that format of each entry is "samplename_mark".
-
-
---For individual merged mark files, add ID to 4th column
-perl Add_XID_tocol.pl <mergefile.bed> <outfile.bed>
-args: <Mark_ID> 4 1
-
---create binned genome or copy one already made.
-perl binning_genome_binnumrestart_JAedit.pl chrom_length.txt output.bed
-
---intersect each individual merged mark file with the binned genome file
-bedtools intersect -a Binned_chromosomes.bed -b H3AC_PEAKS_final.bed -wa -wb -sorted > H3AC_PEAKS_intersect.bed
-
---cut all columns excepts chr#, start, stop, bin#, and mark_ID
-cut -f1-4,8 H3AC_PEAKS_intersect.bed  > H3AC_PEAKS_intersect_cut.bed
 
 
 
