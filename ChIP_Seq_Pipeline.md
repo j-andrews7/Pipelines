@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 05/31/2016**  
+**Last updated 06/03/2016**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.**
@@ -141,7 +141,7 @@ This section explains how to handle the `peaks.bed` files that are output from M
   
   
 #### 2.) Scrub 'em.
-Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample. The python script replaces the 4th column with the actual sample name. 
+Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample. The **python script (rename_columns.py)** replaces the 4th column with the actual sample name. 
 
 ```Bash
 for F in *.bed; do
@@ -151,12 +151,21 @@ for F in *.bed; do
 	rm ${base%.*}.clean.bed
 done
 
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
 python rename_columns.py *.clean.bed
 ```
 
 #### 3.) Concatenate and merge the peak files.
 This merges overlapping peaks between samples so that we end up with just one set of genomic positions for the peaks.
 
+```Bash
+cat *.clean.bed | sort -k1,1 -k2,2n - > catsort_peaks.bed
+
+module load bedtools2
+bedtools merge -c 4 -o distinct,count_distinct -i catsort_peaks.bed > merged_peaks.bed
+```
 
 
 ## Binning and Normalization
@@ -227,33 +236,11 @@ NOTE: Must edit the hash in the beginning of this script to add your sample name
 ####-MACS Bed Files Processing-####
 
 
-##Plan to make a script to do the enclosed manual steps in one easy step eventually
---Rename 4th column in MACS14_peak.bed files to contain the sample name and mark. This is for those with additional info in the filename (TS081414_NAIVE_K27AC, for example.)
-python3 rename_columns.py <MACS14_peak.bed files>
-NOTE: filename format MUST be samplename_celltype,etc_histonemark... .bed
-May just want to edit these as necessary
-
---Concatenate all bed files in a directory
-cat *.bed > output.bed
-
---delete lines containing _g random genomic, M chromosome, Y chromosome loci
-sed '/_g\|chrY\|chrX\|chr23/d' file.bed  > output.bed
-
---Keep only first 4 columns of bed file
-cut -f 1-4 file.bed>file.bed
-
---Sort a bed file by chromosome and then by start
-sort -k1.4,1.5 -k2 -V input.bed > output.bed
-
---Merge features in a bed file
-mergeBed -c 4 -o collapse,count -i K27AC_PEAKS_catsort.bed > K27AC_PEAKS_merged.bed
 
 --For merging of all merged peak files, add MMPID for each line to the fourth column. Place count of unique marks for the region in 6th column
 python3 add_MMPID_count_marks.py <input.bed> <output.bed>
 NOTE:Make sure delimiter for fourth column list is a "," and that format of each entry is "samplename_mark".
 
-##If using ROSE to call SEs, convert the file to .gff format. This script adds IDs.
-python3  convert_to_gff_ROSE.py <input.bed>
 
 --For individual merged mark files, add ID to 4th column
 perl Add_XID_tocol.pl <mergefile.bed> <outfile.bed>
