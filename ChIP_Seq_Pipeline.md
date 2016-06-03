@@ -30,12 +30,13 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [R](https://www.r-project.org/)
   - One or two of the python scripts invoke some R code.
   - May also need the preprocessCore package installed. Just use R studio to install.
+- [bedops](http://bedops.readthedocs.io/en/latest/index.html)
   
 #### Sections  
 - [Preprocessing and Peak Calling](#peak-calling)
 - [Peak Processing](#peak-processing)
 - [Binning and Normalization](#binning-and-normalization)
-- [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
+
 
 ---
 
@@ -132,7 +133,7 @@ done
 wait
 ```
 
-I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called is indicative of crappy sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. 
+I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called is indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. 
   
 ## Peaks Processing
 This section explains how to handle the `peaks.bed` files that are output from MACs. It's really just a matter of cleaning the data up and merging the peaks for all the samples.
@@ -205,17 +206,26 @@ Now we can set this file aside while we normalize the actual signal for each sam
 This section shows how to process the wig files output from MACS to get the load for each sample across the genome.
 
 #### 1.) Bin the wig files. 
-This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have.
+This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample.
 
 **Perl script (bin_whole_genome_wig.pl):**
+
+**TO_DO: MAKE SURE THESE BINS MATCH WITH THE BED ONES**
 
 ```Bash
 bin_whole_genome_wig.pl *peaks.wig 
 ```
 
---combine .bin files into 1 txt file for a given mark
-python3 combine_bins.py <input directory> <output.txt>
-Note: This script requires no post-processing for sorting, removing junk chromosomes, etc. Must have natsort package installed to use though. 
+#### 2.) Combine the `.bin` files.
+This script will combine the .bin files for a given mark into a table. It will also remove chromosomes and sort and such.
+
+**TO_DO:REMOVE NATSORT STUFF AND IMPLEMENT LEXICOGRAPHIC SORTING**
+
+**Python script (combine_bins.py):**  
+```Bash
+python3 combine_bins.py wig_directory output.txt
+``` 
+
 
 --create binned genome
 perl binning_genome_binnumrestart_JAedit.pl chrom_length.txt output.bed
