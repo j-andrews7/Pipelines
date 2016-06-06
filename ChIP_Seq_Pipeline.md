@@ -155,23 +155,23 @@ done
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python rename_columns.py *.clean.bed
+python /scratch/jandrews/bin/rename_columns.py *.bed
 ```
 
 #### 3.) Concatenate and merge the peak files.
 This merges overlapping peaks between samples so that we end up with just one set of genomic positions for the peaks.
 
 ```Bash
-cat *.clean.bed | sort -k1,1 -k2,2n - > catsort_peaks.bed
+cat *.fixed.bed | sort -k1,1 -k2,2n - > catsort_peaks.bed
 
 module load bedtools2
 bedtools merge -c 4 -o distinct,count_distinct -i catsort_peaks.bed > merged_peaks.bed
 ```
 
 #### 4.) Add the mark ID to the 4th column.
-This script adds the given ID to the 4th column. I usually add the histone (or TF, I suppose).
+This script adds a peak ID to the 4th column.
 ```Bash
-perl Add_XID_tocol.pl merged_peaks.bed merged_peaks_ID.bed
+perl /scratch/jandrews/bin/Add_XID_tocol.pl merged_peaks.bed merged_peaks_ID.bed
 args: <Mark_ID> 4 1
 ```
 
@@ -182,22 +182,25 @@ NOTE: Make sure delimiter for fourth column list is a "," and that format of eac
 
 **Python script (add_MMPID_count_marks.py):**
 ```Bash
-python3 add_MMPID_count_marks.py input.bed output.bed
+python3 /scratch/jandrews/bin/add_MMPID_count_marks.py input.bed output.bed
 ```
 
 #### 5.) Bin the genome.
-We need to create bins for the resolution we want to calculate RPM, do normalizations with, etc. Previously, we've done 200 bp bins, but I don't care how big the files are, so I'm doing 50 bp here. Just change the number after `-chop` to change the bin sizes. The `hg19.bed` file just contains the range of each chromosome - `chr1	0	249250621`, etc. The `awk` tidbit just numbers each line, effectively giving each bin an ID.
+We need to create bins for the resolution we want to calculate RPM, do normalizations with, etc. Previously, we've done 200 bp bins, but I don't care how big the files are, so I'm doing 50 bp here. The `hg19.bed` file just contains the size of each chromosome - `chr1	249250621`, etc. 
 
+**Perl script (binning_genome_binnumrestart_JAedit.pl):**
 ```Bash
-bedops -chop 50 hg19.bed | awk '{ print $0 "\t" FNR }' > hg19.50b_bins.bed
+perl binning_genome_binnumrestart_JAedit.pl hg19.chrom.sizes hg19.50bp_bins.bed
+Input: 50
 ```
 
 #### 6.) Intersect the merged peak file with the binned genome.
 Also going to go ahead and cut a bunch of columns, grabbing only the ones for the position, bin #, and mark ID.
+
 ```Bash
 module load bedtools2
 
-bedtools intersect -wa -wb -a hg19.50b_bins.bed -b merged_peaks_ID.bed  | cut -f1-4,8 - > merged_peaks_bins_intersect.bed
+bedtools intersect -wa -wb -a /scratch/jandrews/Ref/hg19.50b_bins.bed -b merged_peaks_ID.bed  | cut -f1-4,8 - > merged_peaks_bins_intersect.bed
 ```
 
 Now we can set this file aside while we normalize the actual signal for each sample.
@@ -206,20 +209,18 @@ Now we can set this file aside while we normalize the actual signal for each sam
 This section shows how to process the wig files output from MACS to get the load for each sample across the genome.
 
 #### 1.) Bin the wig files. 
-This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample.
+This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample. Also be sure you have a file with the chromosome sizes named `hg19.chrom.sizes` in the same folder as the wig files.
 
 **Perl script (bin_whole_genome_wig.pl):**
 
 **TO_DO: MAKE SURE THESE BINS MATCH WITH THE BED ONES**
 
 ```Bash
-bin_whole_genome_wig.pl *peaks.wig 
+perl /scratch/jandrews/bin/bin_whole_genome_wig.pl *.wig 
 ```
 
 #### 2.) Combine the `.bin` files.
 This script will combine the .bin files for a given mark into a table. It will also remove chromosomes and sort and such.
-
-**TO_DO:REMOVE NATSORT STUFF AND IMPLEMENT LEXICOGRAPHIC SORTING**
 
 **Python script (combine_bins.py):**  
 ```Bash
@@ -228,7 +229,7 @@ python3 combine_bins.py wig_directory output.txt
 
 
 --create binned genome
-perl binning_genome_binnumrestart_JAedit.pl chrom_length.txt output.bed
+perl binning_genome_binnumrestart_JAedit.pl hg19.chrom.sizes hg19.50bp_bins.bed
 
 --Turn bin files to .bed format, adding chromosome positions of each bin in between the chromosome and bin columns
 perl bin_to_chromcoords_JAedit.pl <binned_chromosomes file> <any number of binned files>
