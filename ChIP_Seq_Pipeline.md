@@ -195,12 +195,12 @@ Input: 50
 ```
 
 #### 6.) Intersect the merged peak file with the binned genome.
-Also going to go ahead and cut a bunch of columns, grabbing only the ones for the position, bin #, and mark ID.
+Also going to go ahead and cut a bunch of columns, grabbing only the ones for the position, bin #, and mark ID. Then sort lexicographically.
 
 ```Bash
 module load bedtools2
 
-bedtools intersect -wa -wb -a /scratch/jandrews/Ref/hg19.50b_bins.bed -b merged_peaks_ID.bed  | cut -f1-4,8 - > merged_peaks_bins_intersect.bed
+bedtools intersect -wa -wb -a /scratch/jandrews/Ref/hg19.50bp_bins.bed -b merged_peaks_ID.bed | cut -f1-4,8 - | sort -k1,1 -k2,2n - > merged_peaks_bins_intersect.bed
 ```
 
 Now we can set this file aside while we normalize the actual signal for each sample.
@@ -209,14 +209,15 @@ Now we can set this file aside while we normalize the actual signal for each sam
 This section shows how to process the wig files output from MACS to get the load for each sample across the genome.
 
 #### 1.) Bin the wig files. 
-This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample. Also be sure you have a file with the chromosome sizes named `hg19.chrom.sizes` in the same folder as the wig files.
+This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample. Also be sure you have a file with the chromosome sizes named `hg19.chrom.sizes` in the same folder as the wig files. This script **sucks** and is incredibly slow. Run it overnight if you're doing it on a large number of files. 
 
 **Perl script (bin_whole_genome_wig.pl):**
 
-**TO_DO: MAKE SURE THESE BINS MATCH WITH THE BED ONES**
-
 ```Bash
 perl /scratch/jandrews/bin/bin_whole_genome_wig.pl *.wig 
+
+# Move these guys to a differet folder for processing.
+mv *.bin /scratch/jandrews/Data/MACS/BL_REMOVED/BIN_PROCESSING/K27AC/
 ```
 
 #### 2.) Combine the `.bin` files.
@@ -224,28 +225,41 @@ This script will combine the .bin files for a given mark into a table. It will a
 
 **Python script (combine_bins.py):**  
 ```Bash
-python3 combine_bins.py wig_directory output.txt
+python3 /scratch/jandrews/bin/combine_bins.py wig_directory master_table.bin
 ``` 
 
 
---create binned genome
-perl binning_genome_binnumrestart_JAedit.pl hg19.chrom.sizes hg19.50bp_bins.bed
+#### 3.) Convert .bin table to .bed format.
+Now we want to add the chromosome positions of each bin in between the chromosome and bin columns for our master table. This uses the binned genome we created previously. It'll prompt you for some input, use the values below.
 
---Turn bin files to .bed format, adding chromosome positions of each bin in between the chromosome and bin columns
-perl bin_to_chromcoords_JAedit.pl <binned_chromosomes file> <any number of binned files>
-input args: 3 2 1
+**Perl script (bin_to_chromcoords_JAedit.pl):**   
+```Bash
+perl /scratch/jandrews/bin/bin_to_chromcoords_JAedit.pl /scratch/jandrews/Ref/hg19.50bp_bins.bed master_table.bin
+Input prompt args: 3 2 1
+```
 
---To get a count of number of mapped reads in a BAM file, which must be done for each sample to use for RPM:
-samtools view -c -F 4 filename.bam
+#### 4.) Get number of aligned and total reads for each sample.
+These numbers are necessary for the next step.
 
---To get a count of number of ummapped reads in a BAM file:
-samtools view -c -f 4 filename.bam
+```Bash
+module load samtools
 
---To get total number of reads for a BAM file
-samtools view -c HG00173.chrom11.ILLUMINA.bwa.FIN.low_coverage.20111114.bam
+for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch*; do
+	cd "$fold";
+	for f in *BL_removed.bam; do
+		echo "$f";
+		echo "Mapped: ";
+		samtools view -c -F 4 "$f";
+	done
+done
+```
 
---Use read counts from previous step to normalize by RPM for each sample name in the combined_bins file for each mark: use chrcoords_mark_BINS_sort_chr.bin files
-perl Calculating_RPM_forchipseq_calc_JAedit.pl <input.bin with data starting in 4th column> <output file>
+#### 5.) Edit the RPM normalization script.
+Now we're going to edit the next script with the total mapped reads from the previous step. For each sample you have, just add the number to the hash at the beginning of the script (**Calculating_RPM_forchipseq_calc_JAedit.pl**). *Yes, this is obnoxious, I know*. 
+
+
+
+perl Calculating_RPM_forchipseq_calc_JAedit.pl master_table.bed master_table_RPKM.bed
 NOTE: Must edit the hash in the beginning of this script to add your sample names and the number of aligned reads in each. May also have to adjust the column in which data begins for the file within the script. 
 
 
