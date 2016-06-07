@@ -137,6 +137,8 @@ wait
 
 I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called is indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. 
   
+---
+  
 ## Peak Processing  
 This section explains how to handle the `peaks.bed` files that are output from MACs. It's really just a matter of cleaning the data up and merging the peaks for all the samples.
 
@@ -209,6 +211,8 @@ bedtools intersect -wa -wb -a /scratch/jandrews/Ref/hg19.50bp_bins.bed -b merged
 ```
 
 Now we can set this file aside while we normalize the actual signal for each sample.
+
+---
 
 ## Binning and Normalization  
 This section shows how to process the wig files output from MACS to get the load for each sample across the genome.
@@ -309,8 +313,10 @@ Now our data is normalized and ready to be uploaded to UCSC. This script will fi
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python /scratch/jandrews/bin/Make_UCSC.py master_table_RPKM.bed
+python /scratch/jandrews/bin/Make_UCSC.py QN_master_table_RPKM.bed
 ```
+
+---
 
 ## Normalize Peak Regions Only
 This section will take our big RPKM table we just generated and the peaks for our marks and condense the bins for each peak. This is really only necessary if you want to compare the previously created tracks for the QN'd bins to how quantile normalizing only the peak regions across samples to each other looks. *I don't think there's much of a difference, honestly.*
@@ -355,17 +361,24 @@ Now our data is normalized and ready to be uploaded to UCSC. This script will fi
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python /scratch/jandrews/bin/Make_UCSC.py master_table_RPKM.bed
+python /scratch/jandrews/bin/Make_UCSC.py QN_master_table_RPKM_condensed_final.bed
 ```
 
---Calculate averages and fold change by cell type for each QN file from R.
-python3 avg_fc_vals_by_celltype.py -i <input.txt> -o <output.txt> -ucsc <True or False, False by default>
-#Can upload gzipped bedgraph files directly to UCSC to visualize peaks.
+#### 6.) (Optional) Calculate averages and fold change by cell type for each QN file from R. 
+This script will calculate avgs and fold changes by cell type for each peak and print them to the output file. It will also create UCSC tracks for the data columns (the same as the `Make_UCSC.py` script) if you want it to. I haven't used this guy in a long while, but it's here if that data is something you might want.
 
+**Python script (avg_fc_vals_by_celltype.py):**
 
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
 
+python3 /scratch/jandrews/bin/avg_fc_vals_by_celltype.py -i QN_master_table_RPKM_condensed_final.bed -o QN_master_table_RPKM_condensed_final_FC.bed -ucsc False
+```
 
-### Other Useful Scripts   
+---
+
+## Other Useful Scripts   
 These scripts might be useful for other analyses, but they're pretty complex, so I'm not going to go into them much here. Just read their usage statements to figure out what they do/how to use them.
 
 Get genes in range of a loci, given a GTF file containing genes. Can also filter out those that overlap a TSS, etc. Useful for identifying REs that aren't promoters. Again, may want to read the script itself, as it has a number of options.  
