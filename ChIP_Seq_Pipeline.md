@@ -2,7 +2,7 @@
 **Last updated 06/06/2016**  
 Author: jared.andrews07@gmail.com  
 
-This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start and may warn you of possible caveats ahead of time.**
+This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.** The scripts were created/maintained **by 4 different people over several years**, though efforts have been made to streamline things recently.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
@@ -13,7 +13,7 @@ They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` o
 
 An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
 
-**Software Requirements:**
+**Software Requirements:**  
 - [Samtools](http://www.htslib.org/)  
   - This should be available on the CHPC cluster.
 - [Python3 & 2.7](https://www.python.org/downloads/)
@@ -30,26 +30,28 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [R](https://www.r-project.org/)
   - One or two of the python scripts invoke some R code.
   - May also need the preprocessCore package installed. Just use R studio to install.
-- [bedops](http://bedops.readthedocs.io/en/latest/index.html)
+
   
 #### Sections  
 - [Preprocessing and Peak Calling](#peak-calling)
 - [Peak Processing](#peak-processing)
 - [Binning and Normalization](#binning-and-normalization)
+- [Normalize Peak Regions Only](#normalize-peak-regions-only)
+- [Other Useful Scripts](#other-useful-scripts)
 
 
 ---
 
-## Peak Calling
+## Peak Calling  
 This section walks through aligning the fastQ files to the genome, sorting and indexing the bam files, and actually calling the peaks.
 
-#### 1.) Create bowtie indexes if necessary.
-These are necessary for bowtie to work properly. Download your `genome.fa` for your organism/reference of choice and run the build command on it. The second argument is just the prefix to attach to the index files.
+#### 1.) Create bowtie indexes if necessary.  
+These are necessary for bowtie to work properly. Download your `genome.fa` for your organism/reference of choice and run the build command on it. The second argument is just the prefix to attach to the index files.  
 ```Bash
 bowtie2-build hg19.fa hg19
 ```
 
-#### 2.) Align fastQs then sort and index BAMs.
+#### 2.) Align fastQs then sort and index BAMs.  
 I like to use an interactive job on the CHPC cluster for this.
 
 ```Bash
@@ -63,7 +65,7 @@ for f in *.fastq; do
 done
 ```
 
-#### 3.) Place BAMs into batches.
+#### 3.) Place BAMs into batches.  
 Do the same with any INPUT controls, but in a separate directory. Be sure the INPUT BAM and it's corresponding
 factor BAM are in a Batch directory with the same number, i.e. `./INPUT/BATCH1/sample1_input.sorted.bam` & 
 `./K27AC/BATCH1/sample1_k27ac.sorted.bam`. Put the factor bams with no control in a separate directory, i.e. 
@@ -72,10 +74,10 @@ factor BAM are in a Batch directory with the same number, i.e. `./INPUT/BATCH1/s
 This will make things much easier for peak calling later on. 
 
 
-#### 4.) Remove ENCODE blacklist regions.
+#### 4.) Remove ENCODE blacklist regions.  
 [ENCODE](https://sites.google.com/site/anshulkundaje/projects/blacklists) found that ChIP-seq experiments are inherently enriched for huge numbers of reads in specific regions of the genome (usually regions with tons of repeats like near centromeres, telomeres, etc). They suggest removing these reads before calling peaks, but this is even more important for super enhancer calling for which the signal of a given peak is taken into account. Regions with artificially high signal can lead to false positives that can affect the SE curves in a big way, introducing additional noise into data that is already often difficult to decipher.
 
-**Bash script (bam_remove_blacklist.sh)**
+**Bash script (bam_remove_blacklist.sh)**  
 ```Bash
 #!/bin/sh
 
@@ -102,14 +104,14 @@ module remove samtools-1.2
 ```
 
 
-#### 5.) Index the blacklist removed BAMs.
+#### 5.) Index the blacklist removed BAMs.  
 Same command used previous.  
 
 
-#### 6.) Call peaks with MACS.
+#### 6.) Call peaks with MACS.  
 Ensure the `--shiftsize` option is appropriate for your data. For FAIRE I use `--shiftsize=50`, for K4ME3 `--shiftsize=100`, and for other histone marks I use `--shiftsize=150`. For TFs, I usually see things in the `--shiftsize=50 to 100` range, but it's probably worth trying to read more about it. Or trying to let MACS figure out the shiftsize itself (remove the `--nomodel` & `--shiftsize` options).
 
-**Bash script (peak_call_bl_rmvd.sh and variations)**
+**Bash script (peak_call_bl_rmvd.sh and variations)**  
 ```Bash
 #!/bin/sh
 
@@ -135,13 +137,13 @@ wait
 
 I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called is indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. 
   
-## Peaks Processing
+## Peak Processing  
 This section explains how to handle the `peaks.bed` files that are output from MACs. It's really just a matter of cleaning the data up and merging the peaks for all the samples.
 
 #### 1.) Consolidate peaks.bed files from MACS into a single directory for a given mark/TF. 
   
   
-#### 2.) Scrub 'em.
+#### 2.) Scrub 'em.  
 Remove the garbage chromosomes and unnecessary columns. Run the below command from within folder containing the peaks.bed files for each sample. The **python script (rename_columns.py)** replaces the 4th column with the actual sample name. 
 
 ```Bash
@@ -158,7 +160,7 @@ source activate anaconda
 python /scratch/jandrews/bin/rename_columns.py *.bed
 ```
 
-#### 3.) Concatenate and merge the peak files.
+#### 3.) Concatenate and merge the peak files.  
 This merges overlapping peaks between samples so that we end up with just one set of genomic positions for the peaks.
 
 ```Bash
@@ -168,33 +170,36 @@ module load bedtools2
 bedtools merge -c 4 -o distinct,count_distinct -i catsort_peaks.bed > merged_peaks.bed
 ```
 
-#### 4.) Add the mark ID to the 4th column.
-This script adds a peak ID to the 4th column.
+#### 4.) Add the mark ID to the 4th column.  
+This script adds a peak ID to the 4th column.  
 ```Bash
 perl /scratch/jandrews/bin/Add_XID_tocol.pl merged_peaks.bed merged_peaks_ID.bed
 args: <Mark_ID> 4 1
 ```
 
-#### 4.b) (Optional) Add MMPID to the 4th column.
+#### 4.b) (Optional) Add MMPID to the 4th column.  
 If you want to merge these peaks with peaks from another mark or factor, you can assign an MMPID to them now. This script is quite old and probably needs to be edited due to changes made earlier in the pipeline, as it adds counts as well. This step may be extraneous at this point, keeping it here for historical purposes.
 
 NOTE: Make sure delimiter for fourth column list is a "," and that format of each entry is "samplename_mark".
 
-**Python script (add_MMPID_count_marks.py):**
+**Python script (add_MMPID_count_marks.py):**  
 ```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
 python3 /scratch/jandrews/bin/add_MMPID_count_marks.py input.bed output.bed
 ```
 
-#### 5.) Bin the genome.
+#### 5.) Bin the genome.  
 We need to create bins for the resolution we want to calculate RPM, do normalizations with, etc. Previously, we've done 200 bp bins, but I don't care how big the files are, so I'm doing 50 bp here. The `hg19.bed` file just contains the size of each chromosome - `chr1	249250621`, etc. 
 
-**Perl script (binning_genome_binnumrestart_JAedit.pl):**
+**Perl script (binning_genome_binnumrestart_JAedit.pl):**  
 ```Bash
 perl binning_genome_binnumrestart_JAedit.pl hg19.chrom.sizes hg19.50bp_bins.bed
 Input: 50
 ```
 
-#### 6.) Intersect the merged peak file with the binned genome.
+#### 6.) Intersect the merged peak file with the binned genome.  
 Also going to go ahead and cut a bunch of columns, grabbing only the ones for the position, bin #, and mark ID. Then sort lexicographically.
 
 ```Bash
@@ -205,31 +210,51 @@ bedtools intersect -wa -wb -a /scratch/jandrews/Ref/hg19.50bp_bins.bed -b merged
 
 Now we can set this file aside while we normalize the actual signal for each sample.
 
-## Binning and Normalization
+## Binning and Normalization  
 This section shows how to process the wig files output from MACS to get the load for each sample across the genome.
 
-#### 1.) Bin the wig files. 
-This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample. Also be sure you have a file with the chromosome sizes named `hg19.chrom.sizes` in the same folder as the wig files. This script **sucks** and is incredibly slow. Run it overnight if you're doing it on a large number of files. 
+#### 1.) Bin the wig files.  
+This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample. Also be sure edit the path within the Perl script to your `chrom.sizes` file. 
 
-**Perl script (bin_whole_genome_wig.pl):**
+This Perl script **sucks** and is incredibly slow. Run it overnight if you're doing it on a large number of files. I break it up into batches so that it can run on files in parallel.
+
+**Bash script (bin_wigs.sh)**
 
 ```Bash
-perl /scratch/jandrews/bin/bin_whole_genome_wig.pl *.wig 
+#!/bin/sh
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N bin_wigs
+#PBS -m e
+#PBS -q old
+#PBS -l nodes=1:ppn=12,walltime=24:00:00,vmem=64gb
 
-# Move these guys to a differet folder for processing.
-mv *.bin /scratch/jandrews/Data/MACS/BL_REMOVED/BIN_PROCESSING/K27AC/
+for fold in /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/WIGS/K27AC/TREAT/Batch*/; do
+
+	cd "$fold"
+
+	for f in "$fold"/*.wig; do
+		perl /scratch/jandrews/bin/bin_whole_genome_wig.pl "$f" &
+	done
+	wait
+
+	# Move these guys to a differet folder for processing.
+	mv *.bin /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/BIN_PROCESSING/K27AC/
+done
 ```
 
-#### 2.) Combine the `.bin` files.
+#### 2.) Combine the `.bin` files.  
 This script will combine the .bin files for a given mark into a table. It will also remove chromosomes and sort and such.
 
 **Python script (combine_bins.py):**  
 ```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
 python3 /scratch/jandrews/bin/combine_bins.py wig_directory master_table.bin
 ``` 
 
 
-#### 3.) Convert .bin table to .bed format.
+#### 3.) Convert .bin table to .bed format.  
 Now we want to add the chromosome positions of each bin in between the chromosome and bin columns for our master table. This uses the binned genome we created previously. It'll prompt you for some input, use the values below.
 
 **Perl script (bin_to_chromcoords_JAedit.pl):**   
@@ -238,7 +263,7 @@ perl /scratch/jandrews/bin/bin_to_chromcoords_JAedit.pl /scratch/jandrews/Ref/hg
 Input prompt args: 3 2 1
 ```
 
-#### 4.) Get number of aligned and total reads for each sample.
+#### 4.) Get number of aligned and total reads for each sample.  
 These numbers are necessary for the next step.
 
 ```Bash
@@ -247,42 +272,91 @@ module load samtools
 for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch*; do
 	cd "$fold";
 	for f in *BL_removed.bam; do
-		echo "$f";
-		echo "Mapped: ";
-		samtools view -c -F 4 "$f";
+		mapped="$(samtools view -c -F 4 "$f")"
+		echo "${f%%.*}" => "${mapped}",;
 	done
 done
 ```
 
-#### 5.) Edit the RPM normalization script.
-Now we're going to edit the next script with the total mapped reads from the previous step. For each sample you have, just add the number to the hash at the beginning of the script (**Calculating_RPM_forchipseq_calc_JAedit.pl**). *Yes, this is obnoxious, I know*. 
+#### 5.) Edit the RPM normalization script.  
+Now we're going to edit the next script with the total mapped reads from the previous step. For each sample you have, just add the number to the hash at the beginning of the script (**Calc_RPM_ChIP_Seq.pl**). *Yes, this is obnoxious, I know, but you should just be able to copy and paste the values in*. 
 
 
+#### 6.) Normalize by reads for each sample.  
+This script will use the header from the input bed file and compare it to the hash. It will throw errors if it can't find something it's looking for, so make sure everything you expect to be found is actually found. This will calculate RPKMs for each bin for every sample.
 
-perl Calculating_RPM_forchipseq_calc_JAedit.pl master_table.bed master_table_RPKM.bed
-NOTE: Must edit the hash in the beginning of this script to add your sample names and the number of aligned reads in each. May also have to adjust the column in which data begins for the file within the script. 
+```Bash
+perl Calc_RPM_ChIP_Seq.pl master_table.bed master_table_RPKM.bed
+```
 
+#### 7.) Quantile normalize samples.  
+This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis.
 
+> This script won't run on the CHPC cluster due to the way R is installed, so you'll have to run it locally.
 
+**Python script (quantile_normalize.py):**
 
+```Bash
+python /scratch/jandrews/bin/quantile_normalize.py master_table_RPKM.bed
+```
 
+#### 8.) Make UCSC tracks.  
+Now our data is normalized and ready to be uploaded to UCSC. This script will fix the last bin in each chromosome so that UCSC doesn't throw errors and will create a gzipped bedgraph file from each data column that can be directly uploaded to UCSC. 
 
-####-BIN/BED CONVERGENCE-####
---move the <mark>_PEAKS_intersect_cut.bed files and <mark>_RPM.bed files into the same folder
+**Python script (Make_UCSC.py):**
 
---Condense the bins by comparing to the <mark>_PEAKS_intersect_cut.bed file for each mark. End up with an outfile file for each mark. Also includes peak IDs.
-perl condense_by_bin_JAedit.pl <mark_PEAKS_intersect_cut.bed> <mark_RPM.bed> <output_filename>
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
 
---Condense by peak IDs and sum RPM for each sample for each peak
-python3 sum_RPMs_merge_peakIDs.py <mark_RPM_condensed.bed> <output.bed (mark_RPM_condensed_summed.bed suggested)>
+python /scratch/jandrews/bin/Make_UCSC.py master_table_RPKM.bed
+```
 
+## Normalize Peak Regions Only
+This section will take our big RPKM table we just generated and the peaks for our marks and condense the bins for each peak. This is really only necessary if you want to compare the previously created tracks for the QN'd bins to how quantile normalizing only the peak regions across samples to each other looks. *I don't think there's much of a difference, honestly.*
 
+#### 1.) Get the files.  
+Remember that `.bed` file we made for the peaks way back when? Yeah, we're going to need that again, so copy `merged_peaks_bins_intersect.bed` and the `master_table_RPKM.bed` file into the same folder.
 
+#### 2.) Grab the bins for each peak.  
+Yeah, let's do that. 
 
-####-Quantile Normalization-####
+**Perl script (condense_by_bin_JAedit.pl):**
 
-#This actually uses R to perform the QN, but without the hassle of actually using R and its wonky output. Doesn't normalize to a known distribution (yet)
-quantile_normalize.py <RPM table for multiple samples>
+```Bash
+perl condense_by_bin_JAedit.pl merged_peaks_bins_intersect.bed master_table_RPKM.bed master_peaks_RPKM_condensed.bed
+```
+
+#### 3.) Condense by peak IDs and sum RPM values.  
+This will get an RPM value for each peak for each sample.
+
+**Python script (sum_RPMs_merge_peakIDs.py):**  
+```Bash
+python3 sum_RPMs_merge_peakIDs.py master_peaks_RPKM_condensed.bed master_peaks_RPKM_condensed_final.bed
+```
+
+#### 4.) Quantile normalize samples.  
+This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis.
+
+> This script won't run on the CHPC cluster due to the way R is installed, so you'll have to run it locally.
+
+**Python script (quantile_normalize.py):**
+
+```Bash
+python /scratch/jandrews/bin/quantile_normalize.py master_peaks_RPKM_condensed_final.bed
+```
+
+#### 5.) Make UCSC tracks.  
+Now our data is normalized and ready to be uploaded to UCSC. This script will fix the last bin in each chromosome so that UCSC doesn't throw errors and will create a gzipped bedgraph file from each data column that can be directly uploaded to UCSC. 
+
+**Python script (Make_UCSC.py):**
+
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+python /scratch/jandrews/bin/Make_UCSC.py master_table_RPKM.bed
+```
 
 --Calculate averages and fold change by cell type for each QN file from R.
 python3 avg_fc_vals_by_celltype.py -i <input.txt> -o <output.txt> -ucsc <True or False, False by default>
@@ -291,31 +365,11 @@ python3 avg_fc_vals_by_celltype.py -i <input.txt> -o <output.txt> -ucsc <True or
 
 
 
-####-Analysis-####
+### Other Useful Scripts   
+These scripts might be useful for other analyses, but they're pretty complex, so I'm not going to go into them much here. Just read their usage statements to figure out what they do/how to use them.
 
---Get genes in range of a loci, given a GTF file containing genes. Can also filter out those that overlap a TSS, etc. Useful for identifying REs that aren't promoters. Again, 
-may want to read the script itself, as it has a number of options.
-get_genes_in_range.py
+Get genes in range of a loci, given a GTF file containing genes. Can also filter out those that overlap a TSS, etc. Useful for identifying REs that aren't promoters. Again, may want to read the script itself, as it has a number of options.  
+`get_genes_in_range.py`
 
---To do a variety of analyses between samples, use below script. Reading it is your best bet, it has many options that grant it power and flexibility.
-Analyze_Loci.py
-
-
-
-#####-UCSC VISUALIZATION-#####
-#Can create bedgraph files from the original fold change values for viewing in UCSC. 
-
-RECOMMENDED:
-Just use the avg_fc_vals_by_celltype.py and MakeUCSC.py scripts on the condensed bins and uncondensed bins respectively.
-They will create gzipped bedgraph files for each data column for you and save a lot of time.
-
-#Create normalized tracks from QN on non-condensed bins for the samples/marks of interest. 
-#These serve as useful comparators when viewing FC between cell types for each samples. Get the first three columns and sample column using awk.
-awk -F'\t' '{print $1,$2,$3, $23}' OFS="\t" <input.txt> > <output.txt>
-
-#Remove header from file in EmEditor, Textwrangler, using awk or sed, whatever. Chromosome end must also be corrected.
-#Use the below script, as the binned end of chromosome isn't exact. UCSC requires exact ends. 
-python3 chrom_bin_fix.py <input.bg> <output.bg>
-
-#Then upload data into UCSC.
-#For uploading, the track line NEEDS TO BE IN THE FILE. Otherwise it will just load as a BED file and won't display properly. 
+To do a variety of analyses between samples, use below script. Reading it is your best bet, it has many options that grant it power and flexibility. Good for comparisons between groups of samples, as it can calculate fold changes, p-vals, etc.  
+`Analyze_Loci.py`
