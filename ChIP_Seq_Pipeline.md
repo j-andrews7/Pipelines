@@ -247,14 +247,18 @@ done
 ```
 
 #### 2.) Combine the `.bin` files.  
-This script will combine the .bin files for a given mark into a table. It will also remove chromosomes and sort and such.
+This script will combine the .bin files for a given mark into a table. It will also remove chromosomes and such. I run it in an **interactive session** because it eats memory. Sort it afterwards.
 
 **Python script (combine_bins.py):**  
 ```Bash
+qsub -I -l nodes=1:ppn=1,walltime=4:00:00,vmem=32gb
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
 python3 /scratch/jandrews/bin/combine_bins.py wig_directory master_table.bin
+
+(head -n1 master_table.bin && tail -n+2 master_table.bin | sort -k1,1 -k2,2n) > master_table_sorted.bin
+mv master_table_sorted.bin master_table.bin
 ``` 
 
 
@@ -290,7 +294,7 @@ Now we're going to edit the next script with the total mapped reads from the pre
 This script will use the header from the input bed file and compare it to the hash. It will throw errors if it can't find something it's looking for, so make sure everything you expect to be found is actually found. This will calculate RPKMs for each bin for every sample.
 
 ```Bash
-perl Calc_RPM_ChIP_Seq.pl master_table.bed master_table_RPKM.bed
+perl /scratch/jandrews/bin/Calc_RPM_ChIP_Seq.pl chrcoords_master_table.bed master_table_RPKM.bed
 ```
 
 #### 7.) Quantile normalize samples.  
@@ -301,7 +305,7 @@ This script will quantile normalize the samples for each bin, ironing out differ
 **Python script (quantile_normalize.py):**
 
 ```Bash
-python /scratch/jandrews/bin/quantile_normalize.py master_table_RPKM.bed
+python quantile_normalize.py master_table_RPKM.bed
 ```
 
 #### 8.) Make UCSC tracks.  
