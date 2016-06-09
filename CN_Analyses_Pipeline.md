@@ -67,11 +67,11 @@ print $0
 ```
 
 #### 6.) Grab segments specific to each cell-type.
-Go ahead and delete those on the Y chromosome as well.
+Go ahead and delete those on the sex chromosomes as well.
 ```Bash
-grep 'DL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY/d' > DL_CNVs.bed
-grep 'FL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY/d' > FL_CNVs.bed
-grep 'CLL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY/d' > CLL_CNVs.bed
+grep 'DL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY\|chrX/d' > DL_CNVs.bed
+grep 'FL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY\|chrX/d' > FL_CNVs.bed
+grep 'CLL' Lymphoma_SNP77_CNCHP_011615_segment_summary_cleaned.bed | sed '/chrY\|chrX/d' > CLL_CNVs.bed
 ```
 
 #### 7.) Break each CNV file into amps/dels
