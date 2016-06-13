@@ -293,31 +293,61 @@ Now we're going to edit the next script with the total mapped reads from the pre
 #### 6.) Normalize by reads for each sample.  
 This script will use the header from the input bed file and compare it to the hash. It will throw errors if it can't find something it's looking for, so make sure everything you expect to be found is actually found. This will calculate RPKMs for each bin for every sample.
 
+**Bash script (calc_rpm.sh)**
+
 ```Bash
+#!/bin/sh
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N CALC_RPM
+#PBS -m e
+#PBS -q old
+#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=64gb
+
+cd /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/BIN_PROCESSING/K27AC
+
 perl /scratch/jandrews/bin/Calc_RPM_ChIP_Seq.pl chrcoords_master_table.bed master_table_RPKM.bed
 ```
 
 #### 7.) Quantile normalize samples.  
-This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis.
+This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis. You have to denote the column in which the *data to actually QN starts* (5th column here).
 
-> This script won't run on the CHPC cluster due to the way R is installed, so you'll have to run it locally.
+> This script is tricky to run. It's tough to run on the CHPC cluster due to the way R is installed, so running it locally is easiest, provided you've got the memory to do it (hint, you don't). The file is likely quite large at this point. If you have to run it on the cluster, you'll have to install R in your home directory. I recommend R-3.2.1 since it includes a bunch of libraries you need that are left out in later versions. R is not memory efficient and your file may be **10gb+**, so this sucker takes a while to run.
 
-**Python script (quantile_normalize.py):**
+**Bash scripts (quantile_normalize.sh):**
 
 ```Bash
-python quantile_normalize.py master_table_RPKM.bed
+#!/bin/sh
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N quantile_normalize
+#PBS -m e
+#PBS -l nodes=1:ppn=1:haswell,walltime=24:00:00,vmem=96gb
+
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+cd /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/BIN_PROCESSING/K27AC
+
+python /scratch/jandrews/bin/quantile_normalize_new.py master_table_RPKM.bed 5
 ```
 
 #### 8.) Make UCSC tracks.  
 Now our data is normalized and ready to be uploaded to UCSC. This script will fix the last bin in each chromosome so that UCSC doesn't throw errors and will create a gzipped bedgraph file from each data column that can be directly uploaded to UCSC. 
 
-**Python script (Make_UCSC.py):**
+**Bash script (make_ucsc.sh):**
 
 ```Bash
+#!/bin/sh
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N MAKE_UCSC
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=64gb
+
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python /scratch/jandrews/bin/Make_UCSC.py QN_master_table_RPKM.bed
+cd /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/BIN_PROCESSING/K27AC
+
+python /scratch/jandrews/bin/MakeUCSC.py -i QN_master_table_RPKM.bed -o QN_master_table_RPKM_final.bed
 ```
 
 ---
@@ -334,38 +364,57 @@ Yeah, let's do that.
 **Perl script (condense_by_bin_JAedit.pl):**
 
 ```Bash
-perl condense_by_bin_JAedit.pl merged_peaks_bins_intersect.bed master_table_RPKM.bed master_peaks_RPKM_condensed.bed
+perl /scratch/jandrews/bin/condense_by_bin_JAedit.pl merged_peaks_bins_intersect.bed master_table_RPKM.bed master_peaks_RPKM_condensed.bed
 ```
 
-#### 3.) Condense by peak IDs and sum RPM values.  
-This will get an RPM value for each peak for each sample.
+#### 3.) Quantile normalize samples.  
+This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis. You have to denote the column in which the *data to actually QN starts* (5th column here).
 
-**Python script (sum_RPMs_merge_peakIDs.py):**  
-```Bash
-python3 sum_RPMs_merge_peakIDs.py master_peaks_RPKM_condensed.bed master_peaks_RPKM_condensed_final.bed
-```
+> This script is tricky to run. It's tough to run on the CHPC cluster due to the way R is installed, so running it locally is easiest, provided you've got the memory to do it (hint, you don't). The file is likely quite large at this point. If you have to run it on the cluster, you'll have to install R in your home directory. I recommend R-3.2.1 since it includes a bunch of libraries you need that are left out in later versions. R is not memory efficient and your file may be **10gb+**, so this sucker takes a while to run.
 
-#### 4.) Quantile normalize samples.  
-This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis.
-
-> This script won't run on the CHPC cluster due to the way R is installed, so you'll have to run it locally.
-
-**Python script (quantile_normalize.py):**
+**Bash scripts (quantile_normalize.sh):**
 
 ```Bash
-python /scratch/jandrews/bin/quantile_normalize.py master_peaks_RPKM_condensed_final.bed
-```
+#!/bin/sh
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N quantile_normalize
+#PBS -m e
+#PBS -l nodes=1:ppn=1:haswell,walltime=24:00:00,vmem=96gb
 
-#### 5.) Make UCSC tracks.  
-Now our data is normalized and ready to be uploaded to UCSC. This script will fix the last bin in each chromosome so that UCSC doesn't throw errors and will create a gzipped bedgraph file from each data column that can be directly uploaded to UCSC. 
-
-**Python script (Make_UCSC.py):**
-
-```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python /scratch/jandrews/bin/Make_UCSC.py QN_master_table_RPKM_condensed_final.bed
+cd /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/BIN_PROCESSING/K27AC
+
+python /scratch/jandrews/bin/quantile_normalize_new.py master_table_RPKM.bed 6
+```
+
+#### 4.) Condense by peak IDs and sum RPM values.  
+This will get a single value for each peak for each sample. Useful for direct comparisons, etc
+
+**Python script (sum_RPMs_merge_peakIDs.py):**  
+```Bash
+python3 sum_RPMs_merge_peakIDs.py QN_master_peaks_RPKM_condensed.bed QN_master_peaks_RPKM_condensed_final.bed
+```
+
+#### 5.) Make UCSC tracks.  
+Now our data is normalized and ready to be uploaded to UCSC. This script will fix the last bin in each chromosome so that UCSC doesn't throw errors and will create a gzipped bedgraph file from each data column that can be directly uploaded to UCSC. You might have to *edit the script* to change the data column start.
+
+**Bash script (make_ucsc.sh):**
+
+```Bash
+#!/bin/sh
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N MAKE_UCSC
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=64gb
+
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+cd /scratch/jandrews/Data/ChIP_Seq/MACS/BL_REMOVED/BIN_PROCESSING/K27AC
+
+python /scratch/jandrews/bin/MakeUCSC.py -i QN_master_table_RPKM.bed -o QN_master_table_RPKM_final.bed
 ```
 
 #### 6.) (Optional) Calculate averages and fold change by cell type for each QN file from R. 
