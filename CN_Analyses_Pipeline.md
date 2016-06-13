@@ -1,6 +1,6 @@
 # CN Analysis 
 
-**Last edited 05/23/2016.**  
+**Last edited 06/09/2016.**  
 jared.andrews07@gmail.com
 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays, determine minimal common regions between them, make some pretty figures, and integrate them with our other data sets (SEs, lncRNAs, REs, etc). As with most things, this started off relatively simple and grew to be more complicated as results were analyzed and additional approaches tried.
@@ -217,6 +217,7 @@ done
 
 #### 5.) Remove regions near centromeres/with no probes.
 Some of the chromosomes (13-15, 21, 22, etc) don't have probes for pretty big regions from the beginning of the chromosome to the centromere. The areas near the centromeres can also throw false positives, so I typically remove the bins in these areas. Do this for both the big matrix file and the individual chromosome files.
+
 ```Bash
 module load bedtools2 
 
@@ -612,7 +613,19 @@ python /scratch/jandrews/bin/get_cnvs_by_sample.py -i CLL_AMPS_ANNOT_GENES_CONDE
 python /scratch/jandrews/bin/get_cnvs_by_sample.py -i CLL_DELS_ANNOT_GENES_CONDENSED.bed -o _DELS_ANNOT_GENES_CONDENSED.bed
 ```
 
-#### 2.) Get signal for SEs in/outside CNVs.
+#### 2.) Remove regions near centromeres/with no probes.
+Some of the chromosomes (13-15, 21, 22, etc) don't have probes for pretty big regions from the beginning of the chromosome to the centromere. The areas near the centromeres can also throw false positives, so I typically remove the bins in these areas. Do this for both the big matrix file and the individual chromosome files.
+
+```Bash
+module load bedtools2 
+
+for f in *ANNOT*; do
+	bedtools intersect -v -a "$f" -b /scratch/jandrews/Ref/hg19_cn_exclusions.bed | sort -V -k1,1 -k2,2n > "$f".exclude
+	rename .bed.exclude .bed "$f".exclude
+done
+```
+
+#### 3.) Get signal for SEs in/outside CNVs.
 This script intersects the SEs with the amps and dels for a given sample. The signal for the SEs found **in** the amp/del will be output to one file, while those found **outside** the amp/del will be output to another file. It also finds the SEs that are "unchanged" in a given sample (i.e., **not found in either the amps or dels**). It's kind of lazily coded, so it *assumes* the sample name will be the first thing in the input file name (e.g., <sample>_moreinfo). 
 
 **Python script (get_sample_se_cnv_loads.py):**
@@ -640,11 +653,11 @@ source activate anaconda
 
 for file in *AMPS_ANNOT*; do
 	samp="$(echo "$file" | cut -d'_' -f1)"
-	python /scratch/jandrews/bin/get_sample_se_cnv_loads.py "$samp"* FLDL_CCCB_ONLY_SES_SIGNAL.bed 0.25
+	python /scratch/jandrews/bin/get_sample_se_cnv_loads.py "$samp"* RECURRENT_FLDL_CCCB_ONLY_SES_SIGNAL.bed 0.25
 done
 ```
 
-#### 3.) Copy data into table.
+#### 4.) Copy data into table.
 Use excel (or write a script, I'm a guideline, not a cop), to get all of the signals into a format like so for all the comparisons you'd like to see:
 
 | DL135      |             | DL188      |             |
@@ -656,7 +669,7 @@ Use excel (or write a script, I'm a guideline, not a cop), to get all of the sig
 
 The columns will likely not be the same length. Can also make other tables like this, like "In amps" vs "In dels", etc.
 
-#### 4.) Create box plots.
+#### 5.) Create box plots.
 I used GraphPad Prism for this since it looks good, is pretty easy to use, and can do any stats you may want. I did unpaired, two-tailed, Welch's t-tests and got decent results. 
 
 ---
@@ -672,7 +685,19 @@ The original table has VGA/CC samples, but I only want to normalize to samples f
 cut -f4,7,8,26-30 --complement GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1.txt | sed '/chrX\|chrY\|chr23\|_g/d' - > GENCODE_NOVEL_LINC_FPKMS_2SAMPS_OVER1_CUT.txt
 ```
 
-#### 2.) Calculate linc expression FCs for each sample in CNVs.
+#### 2.) Remove regions near centromeres/with no probes.
+Some of the chromosomes (13-15, 21, 22, etc) don't have probes for pretty big regions from the beginning of the chromosome to the centromere. The areas near the centromeres can also throw false positives, so I typically remove the bins in these areas. Do this for both the big matrix file and the individual chromosome files.
+
+```Bash
+module load bedtools2 
+
+for f in *ANNOT*; do
+	bedtools intersect -v -a "$f" -b /scratch/jandrews/Ref/hg19_cn_exclusions.bed | sort -V -k1,1 -k2,2n > "$f".exclude
+	rename .bed.exclude .bed "$f".exclude
+done
+```
+
+#### 3.) Calculate linc expression FCs for each sample in CNVs.
 The mash everything together and get stats script. It calculates the log2 FC for each linc in each sample compared to the median and average of the linc FPKMs for all samples in the expression file. Spits out these values for all lincs inside/out the CNVs for each sample. You set the percentage that the linc must overlap the CNV to be considered "in" it. I usually try a few different percentages, but anything >= 25% will get rid on those fringe cases where the linc is barely overlapping the CNV.
 
 **Python script (get_sample_linc_cnv_loads.py):**
@@ -705,7 +730,7 @@ for file in *AMPS_ANNOT*; do
 done
 ```
 
-#### 3.) Copy data into table.
+#### 4.) Copy data into table.
 Use excel (or write a script, I'm a guideline, not a cop), to get all of the signals into a format like so for all the comparisons you'd like to see:
 
 | DL135   |             |             |             |
