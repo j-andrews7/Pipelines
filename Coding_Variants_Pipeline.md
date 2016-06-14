@@ -1,5 +1,5 @@
 # Coding Variants Pipeline
-**Up to date as of 04/13/2016.**  
+**Up to date as of 06/14/2016.**  
 This is an imitation of Liv's coding variant calling pipeline, albeit with some improvements to increase sensitivity (hypothetically). This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
@@ -206,6 +206,77 @@ perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_eff
 ```Bash
 bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/Coding_Variants_Combined.annot.vcf -b GM12878_TF151_names_final.bed > Coding_Variants_Combined_Annot_GM_ChIP_TFs_isec.bed
 ```
+
+---
+
+## Create mutational signatures for a set of samples.
+This will combine the noncoding and coding variants into a single file for a given sample, from which mutational signatures can be generated.
+
+#### 1.) Pool files.
+Stick the VS, BCF, and filtered, multimark variant files from ChIP-seq data into the same folder.
+
+#### 2.) Fix headers.
+Be sure the file names are `sample_restofname.vcf` for each sample. Edit the header of the BCF and VS files in a text editor so they go `sample_BCF` or `sample_VS` accordingly. Text editor style because I was too lazy to write something.
+
+#### 3.) Combine the BCFTools, VarScan, and noncoding files.
+This step was an **enormous** hassle to figure out. This will yield a single file for each sample with **all** variants in the sample.
+
+**i. Create a sequence dict for reference genome**  
+This has to be done for GATK/Picard tools to work properly.   
+**Bash script (create_ref_dict.sh):**
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N CREATE_REF_DICT
+#PBS -m e
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=36gb
+#PBS -q old
+
+module load java
+java -jar /scratch/jandrews/bin/picard-tools-2.2.1/picard.jar CreateSequenceDictionary R= /scratch/jandrews/Ref/hg19.fa O= /scratch/jandrews/Ref/hg19.dict
+module remove java
+```
+
+**ii. Sort VCFs to same order as reference genome.**  
+I still don't get why the tools can't figure this out on their own, but again, a necessity.  
+
+```Bash
+for f in *.vcf; do
+	perl /scratch/jandrews/bin/vcfsorter.pl /scratch/jandrews/Ref/hg19.dict "$f" > "$f".sorted 2>STDERR
+	rename .vcf.sorted .sorted.vcf "$f".sorted
+done
+```
+
+**iii. Combine the samtools, VarScan, and noncoding VCFs for each sample.**  
+You have to change the `samp` line below to match the sample for each file.  
+
+**Bash script (combine_merged_vcfs.sh):**
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N COMBINE_VCFs
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=16gb
+
+samp=FL120
+
+module load java
+java -Xmx1g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.jar \
+	-T CombineVariants \
+	-R /scratch/jandrews/Ref/hg19.fa \
+	--variant:bcftools /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_RNAseq_BCF.sorted.vcf  \
+	--variant:varscan /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_RNAseq_VS.sorted.vcf \
+	--variant:chip_seq /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_variants_filtered_multimark.sorted.vcf \
+	-o /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_Combined.vcf \
+	-genotypeMergeOptions UNIQUIFY 
+
+module remove java
+```
+
+#### 4.) Create frequency matrix for SNVs.
+We'll use this matrix to generate the mutational signatures for our samples.
 
 ---
 
