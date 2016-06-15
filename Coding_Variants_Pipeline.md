@@ -300,7 +300,7 @@ bcftools -merge
 
 ---
 
-### COMPARISON OF SNP ARRAYS, SAMTOOLS, & VARSCAN RESULTS <a name="comparison"></a>
+## Variant caller comparisons
 I made the **mistake of assuming** the calls on the arrays (1,2,3,0 aka AA,AB,BB,no call) had allele A as the reference allele and B as the variant. This is apparently not the case. Don't make my mistake, only use the het calls to determine how well your variant calling pipeline is doing vs the arrays.
 
 This picks up after step 1 of the initial variant calling as noted above.
