@@ -276,7 +276,27 @@ module remove java
 ```
 
 #### 4.) Create frequency matrix for SNVs.
-We'll use this matrix to generate the mutational signatures for our samples.
+We'll use this matrix to generate the mutational signatures for our samples. Throw all the `<sample>_Combined.vcf` files you want to include into a directory by themselves. 
+
+**Python script (make_trinuc_matrix.py):**  
+```Bash
+
+python /scratch/jandrews/bin/make_trinuc_matrix.py -i /vcf_directory -o FLDLCLL_CCCB.txt -r /scratch/jandrews/Ref/hg19.fa
+```
+
+#### 5.) Create mutational signatures.
+I use R studio for this. Set the iterations to 1000 within the R script and delete the copyright portion at the beginning. You can also put in the name of your tumor type (or use a generic label like NHL). Can download the necessary R script [here](https://www.broadinstitute.org/cancer/cga/msp_download).
+
+Read in the output matrix from above as "lego96" and source the script to run it. It will take a few days to run if you have a fair number of samples. Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them.
+
+#### 6.) (Optional) Run it again for the samples grouped by cell type.
+If you want to try to show clear differences between the cell types, you can merge the VCFs for each cell type and just run it on those.
+
+```Bash
+module load bcftools
+bcftools -merge
+```
+
 
 ---
 
