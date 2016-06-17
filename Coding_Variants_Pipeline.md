@@ -1,10 +1,11 @@
 # Coding Variants Pipeline
-**Up to date as of 06/14/2016.**  
-This is an imitation of Liv's coding variant calling pipeline, albeit with some improvements to increase sensitivity (hypothetically). This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers, as they have fairly high overlap.
+**Up to date as of 06/17/2016.** 
+**Author: jared.andrews07@gmail.com**  
+This is an imitation of Liv's variant calling pipelines, albeit with some improvements to increase sensitivity (hypothetically). Liv tended to treat the variants from RNA-seq and ChIP-seq separately all the way through, and while I do call and filter them differently, I think it's easier to merge them together at some point. This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers for the RNA-seq data, as they have fairly high overlap.
 
-This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
+This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running everything locally and the various tools needed are located on your `PATH`, you can ignore these.
 
-> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab.
 
 All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
 They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
@@ -24,9 +25,18 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [VarScan2](http://dkoboldt.github.io/varscan/)
 - [GATK](https://www.broadinstitute.org/gatk/download/)
 - [Picard Tools](http://broadinstitute.github.io/picard/)
+- [Perl](https://www.perl.org/)
+- [Variant Effect Predictor](http://useast.ensembl.org/info/docs/tools/vep/index.html)
 
+**SECTIONS**
+I recommend just going through these in order.
+- [Variant Calling from RNA-seq Data](#variant-calling-from-RNA-seq-Data)
+- [Creating Mutational Signatures](#create-mutational-signatures)
 
 ---
+
+## Variant Calling From RNA-seq
+This section will call variants from RNA-seq data using both VarScan and bcftools (samtools). 
 
 #### 1A.) Call variants with VarScan.
 samtools: mpileup piped to varscan to call variants with filters for read depth (5) and quality (15).
@@ -135,13 +145,6 @@ bcftools merge -O v -m none -i DP:sum *.gz > merge.vcf
 module remove bcftools-1.2
 ```
 
-**TO DO - ROLL IN CODING VARIANTS FROM CHIP-SEQ DATA AFTER FUNSEQ ANNOTATION AROUND HERE.**
-General idea:
-- Parse FunSeq output to get coding variants for each sample.
-- Backwards intersect these with the ChIP-seq VCF for the given sample to get the genotype and other info that FunSeq utterly destroyed for each variant.
-- Take all the resulting VCFs and merge them, somewhat similar to the above commands.
-- Include this file in the combining steps below.
-
 #### 6.) Fix headers.
 Text editor style because I was too lazy to write something.
 
@@ -209,7 +212,7 @@ bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/FINA
 
 ---
 
-## Create mutational signatures for a set of samples.
+## Create mutational signatures
 This will combine the noncoding and coding variants into a single file for a given sample, from which mutational signatures can be generated.
 
 #### 1.) Pool files.
