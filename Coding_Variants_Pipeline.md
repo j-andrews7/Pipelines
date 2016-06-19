@@ -33,7 +33,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 **SECTIONS**
 I recommend just going through these in order.
-- [Variant Calling from RNA-seq Data](#variant-calling-from-RNA-seq-Data)
+- [Variant Calling from RNA-seq Data](#variant-calling-from-rna-seq-data)
+- [Variant Calling from ChIP-seq Data(#variant-calling-from-chip-seq-data)
 - [Creating Mutational Signatures](#create-mutational-signatures)
 
 ---
@@ -150,10 +151,21 @@ bcftools merge -O v -m none -i DP:sum *.gz > merge.vcf
 module remove bcftools-1.2
 ```
 
-Now set these files aside and let's work on the ChIP-seq data.
-
 #### 6.) Fix headers.
 Text editor style because I was too lazy to write something.
+
+Now set these files aside and let's work on the ChIP-seq data.
+
+---
+
+## Variant Calling from ChIP-Seq Data
+Here's how I identify variants from the ChIP-seq data. This is fairly stringent due to the low coverage, but hopefully it reduces false positives and ensures we don't waste time trying to validate mutations that aren't around.
+
+
+
+
+## Merging All Variants
+Now we can put the variants from the RNA-seq and ChIP-seq data together.
 
 #### 7.) Combine the BCFTools and VarScan files.
 This step was an **enormous** hassle to figure out.
@@ -207,7 +219,10 @@ java -Xmx15g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.ja
 #### 8.) Annotate with VEP. 
 This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
 ```Bash
-perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i Coding_Variants_Combined.vcf -o Coding_Variants_Combined.annot.vcf
+for f in *.gz; 
+	do perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --fork 2 --check_existing --biotype --gencode_basic --hgvs --canonical --uniprot --variant_class --gmaf --maf_1kg --maf_esp --polyphen b --regulatory --sift b --species homo_sapiens --symbol --cache --port 3337 --vcf --stats_file "$f".stats.html --input_file "$f" -o "$f".VEP_Anno; 
+	rename .vcf.gz.VEP_Anno .VEP_Anno.vcf "$f".VEP_Anno; 
+done
 ```
 
 
