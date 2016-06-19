@@ -1,6 +1,9 @@
 # Coding Variants Pipeline
-**Up to date as of 06/17/2016.** 
+**Up to date as of 06/17/2016.**  
 **Author: jared.andrews07@gmail.com**  
+
+---
+
 This is an imitation of Liv's variant calling pipelines, albeit with some improvements to increase sensitivity (hypothetically). Liv tended to treat the variants from RNA-seq and ChIP-seq separately all the way through, and while I do call and filter them differently, I think it's easier to merge them together at some point. This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers for the RNA-seq data, as they have fairly high overlap.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running everything locally and the various tools needed are located on your `PATH`, you can ignore these.
@@ -128,6 +131,8 @@ for f in *.gz; do
 done
 ```
 
+
+
 #### 5.) Merge VCFs.
 First, those from VarScan with each other. Then those from BCFTools with each other. `-m none` means multiallelic records will be split to separate lines. Doing so is rather important, as if two samples have different variant alleles at the same position, only one is reported as having the variant if multiallelic records are allowed. Alternatively, setting `-m both` should create a multiallelic record, which may be wanted at times. No idea what the default is, BCFtools docs don't mention.
 
@@ -144,6 +149,8 @@ module load bcftools-1.2
 bcftools merge -O v -m none -i DP:sum *.gz > merge.vcf
 module remove bcftools-1.2
 ```
+
+Now set these files aside and let's work on the ChIP-seq data.
 
 #### 6.) Fix headers.
 Text editor style because I was too lazy to write something.
@@ -203,12 +210,6 @@ This is essentially impossible to get working on the cluster due to how perl is 
 perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --everything --vcf --format vcf --fork 2 --symbol --cache --port 3337 -i Coding_Variants_Combined.vcf -o Coding_Variants_Combined.annot.vcf
 ```
 
-**Fin.** Can do whatever with it at this point. I did an intersect with the GM TF ChIP-Seq data for kicks.
-
-#### 9.) Intersect with GM TF ChIP-Seq data.  
-```Bash
-bedtools intersect -wa -wb -a /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/Coding_Variants_Combined.annot.vcf -b GM12878_TF151_names_final.bed > Coding_Variants_Combined_Annot_GM_ChIP_TFs_isec.bed
-```
 
 ---
 
@@ -219,7 +220,7 @@ This will combine the noncoding and coding variants into a single file for a giv
 Stick the VS, BCF, and filtered, multimark variant files from ChIP-seq data into the same folder.
 
 #### 2.) Fix headers.
-Be sure the file names are `sample_restofname.vcf` for each sample. Edit the header of the BCF and VS files in a text editor so they go `sample_BCF` or `sample_VS` accordingly. Text editor style because I was too lazy to write something.
+Be sure the file names are `sample_restofname.vcf` for each sample. Edit the header of the BCF and VS files in a text editor so they go `sample_BCF` or `sample_VS` accordingly. 
 
 #### 3.) Combine the BCFTools, VarScan, and noncoding files.
 This step was an **enormous** hassle to figure out. This will yield a single file for each sample with **all** variants in the sample.
