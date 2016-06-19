@@ -1,12 +1,12 @@
 # ChIP-SEQ Pipeline
-**Last updated 06/06/2016**  
+**Last updated 06/17/2016**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.** The scripts were created/maintained **by 4 different people over several years**, though efforts have been made to streamline things recently.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
-> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab.
 
 All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
 They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
@@ -255,7 +255,7 @@ qsub -I -l nodes=1:ppn=1,walltime=4:00:00,vmem=32gb
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python3 /scratch/jandrews/bin/combine_bins.py wig_directory master_table.bin
+python3 /scratch/jandrews/bin/combine_bins.py bin_directory master_table.bin
 
 (head -n1 master_table.bin && tail -n+2 master_table.bin | sort -k1,1 -k2,2n) > master_table_sorted.bin
 mv master_table_sorted.bin master_table.bin
@@ -281,7 +281,16 @@ for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch*; do
 	cd "$fold";
 	for f in *BL_removed.bam; do
 		mapped="$(samtools view -c -F 4 "$f")"
-		echo "${f%%.*}" => "${mapped}",;
+		echo "${f%%.*}" '=>' "${mapped}",;
+	done
+done
+
+# For those without control bams as well.
+for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/NO_CTRL/Batch*; do
+	cd "$fold";
+	for f in *BL_removed.bam; do
+		mapped="$(samtools view -c -F 4 "$f")"
+		echo "${f%%.*}" '=>' "${mapped}",;
 	done
 done
 ```
