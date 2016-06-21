@@ -225,15 +225,19 @@ for f in *.gz;
 done
 ```
 
-This second run will remove the common variants (those with a MAF >0.01 in the 1000 genomes populations.
+#### 9.) Filter out common variants.
+This second run will remove the common variants (those with a MAF >0.01 in [dbSNP build 146](ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b146_GRCh37p13/VCF/)). It creates a directory for each sample, so then you can go into each directory, and move the files up.
 
 ```Bash
+module load bcftools
+
 for f in *.gz; 
-	do perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --fork 2 --check_existing --biotype --gencode_basic --hgvs --canonical --uniprot --variant_class --gmaf --maf_1kg --maf_esp --polyphen b --regulatory --sift b --species homo_sapiens --symbol --cache --port 3337 --vcf --stats_file "$f".common_rmvd.stats.html --check_frequency --freq_filter exclude --freq_freq 0.01 --freq_gt_lt gt --freq_pop 1kg_all --input_file "$f" -o "$f".VEP_Anno.common_rmvd; 
+	bcftools isec -O v -p "${f%%.*} -C "$f" /scratch/jandrews/Ref/dbSNP146_common_all.vcf.gz
 done
 
-for f in *.VEP_Anno.common_rmvd; do
-	mv "$f" "${f%%.*}".VEP_Anno.common_rmvd.vcf
+for fold in "$PWD"/*Combined; do
+	cd "$fold"
+	mv 0000.vcf ../"${PWD##*/}".VEP_Anno.dbSNP146_common_rmvd.vcf
 done
 ```
 
