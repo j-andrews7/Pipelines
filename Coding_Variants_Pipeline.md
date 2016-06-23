@@ -1,5 +1,5 @@
 # Coding Variants Pipeline
-**Up to date as of 06/17/2016.**  
+**Up to date as of 06/21/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
 ---
@@ -226,19 +226,14 @@ done
 ```
 
 #### 9.) Filter out common variants.
-This second run will remove the common variants (those with a MAF >0.01 in [dbSNP build 146](ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b146_GRCh37p13/VCF/)). It creates a directory for each sample, so then you can go into each directory, and move the files up.
+This will remove the common variants (those with a MAF >0.01 in dbSNP build 146). I originally used the internal VEP filters that use the 1000 genomes project allele frequencies, but found that they don't have all the ones that dbSNP does. Since I use hg19 from UCSC as my reference genome, I had to download the common snps (146) track from UCSC as a `bed` file through the table browser to ensure correct positions. It creates a directory for each sample, so then you can go into each directory, and move the files up. Bedtools is *very* memory in-efficient when using a large file for `-b` as we are here, hence why I go ahead and use an interactive session with a ton of memory.
 
 ```Bash
-module load bcftools
+qsub -I -l nodes=1:ppn=1,walltime=4:00:00,vmem=128gb 
 
-for f in *.gz; 
-	bcftools isec -O v -p "${f%%.*} -C "$f" /scratch/jandrews/Ref/dbSNP146_common_all.vcf.gz
-done
+module load bedtools2
 
-for fold in "$PWD"/*Combined; do
-	cd "$fold"
-	mv 0000.vcf ../"${PWD##*/}".VEP_Anno.dbSNP146_common_rmvd.vcf
-done
+for f in *VEP_Anno.vcf.gz; do bedtools intersect -v -header -a "$f" -b /scratch/jandrews/Ref/dbSNP146_common_variants.bed.gz > "${f%%.*}".VEP_Anno.dbSNP146_common_rmvd.vcf; done
 ```
 
 
