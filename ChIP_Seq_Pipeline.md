@@ -52,7 +52,7 @@ bowtie2-build hg19.fa hg19
 ```
 
 #### 2.) Align fastQs then sort and index BAMs.  
-I like to use an interactive job on the CHPC cluster for this.
+I like to use an interactive job on the CHPC cluster for this. It is also a good idea to **mark and remove duplicate reads** which is not shown here, but can be acheived with Picard's `MarkDuplicates` tool and samtools.
 
 ```Bash
 qsub -I -l nodes=1:ppn=8,walltime=15:00:00,vmem=16gb
