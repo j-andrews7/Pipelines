@@ -1,5 +1,5 @@
 # Coding Variants Pipeline
-**Up to date as of 06/21/2016.**  
+**Up to date as of 06/28/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
 ---
@@ -34,7 +34,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 **SECTIONS**
 I recommend just going through these in order.
 - [Variant Calling from RNA-seq Data](#variant-calling-from-rna-seq-data)
-- [Variant Calling from ChIP-seq Data(#variant-calling-from-chip-seq-data)
+- [Variant Calling from ChIP-seq Data](#variant-calling-from-chip-seq-data)
 - [Creating Mutational Signatures](#create-mutational-signatures)
 
 ---
@@ -311,21 +311,16 @@ We'll use this matrix to generate the mutational signatures for our samples. Thr
 **Python script (make_trinuc_matrix.py):**  
 ```Bash
 
-python /scratch/jandrews/bin/make_trinuc_matrix.py -i /vcf_directory -o FLDLCLL_CCCB.txt -r /scratch/jandrews/Ref/hg19.fa
+python /scratch/jandrews/bin/make_trinuc_matrices.py -i /vcf_directory -o FLDLCLL_CCCB.txt -r /scratch/jandrews/Ref/hg19.fa
 ```
 
 #### 5.) Create mutational signatures.
-I use R studio for this. Set the iterations to 1000 within the R script and delete the copyright portion at the beginning. You can also put in the name of your tumor type (or use a generic label like NHL). Can download the necessary R script [here](https://www.broadinstitute.org/cancer/cga/msp_download).
+I use R studio for this and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out.
 
-Read in the output matrix from above as "lego96" and source the script to run it. It will take a few days to run if you have a fair number of samples. Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them.
+Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them.
 
 #### 6.) (Optional) Run it again for the samples grouped by cell type.
-If you want to try to show clear differences between the cell types, you can merge the VCFs for each cell type and just run it on those.
-
-```Bash
-module load bcftools
-bcftools -merge
-```
+If you want to try to show clear differences between the cell types, you can merge the VCFs for each cell type using `bcftools` and just run it on those.
 
 
 ---
