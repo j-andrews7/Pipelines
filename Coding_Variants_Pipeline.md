@@ -315,7 +315,7 @@ python /scratch/jandrews/bin/make_trinuc_matrices.py -i /vcf_directory -o FLDLCL
 ```
 
 #### 5.) Create mutational signatures.
-I use R studio for this and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out.
+I use R studio for this and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out. Just import the matrix file we created in the last step, convert it to a matrix, and plug it into the commands above.
 
 Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them.
 
@@ -325,7 +325,7 @@ If you want to try to show clear differences between the cell types, you can mer
 
 ---
 
-## Variant caller comparisons
+## Variant Caller Comparisons
 I made the **mistake of assuming** the calls on the arrays (1,2,3,0 aka AA,AB,BB,no call) had allele A as the reference allele and B as the variant. This is apparently not the case. Don't make my mistake, only use the het calls to determine how well your variant calling pipeline is doing vs the arrays.
 
 This picks up after step 1 of the initial variant calling as noted above.
