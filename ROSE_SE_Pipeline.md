@@ -1,6 +1,6 @@
 # Super Enhancer Calling
 
-**Last edited 05/11/2016**
+**Last edited 06/30/2016**
 
 A super enhancer pipeline using [ROSE](https://bitbucket.org/young_computation/rose) - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easily be combined/piped together.
 
@@ -174,7 +174,7 @@ done
   
   
 #### 9.) Run ROSE. 
-`-t` specifies areas around the TSS to exclude peaks for stitching. Can be omitted if wanted. ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder before running again if you want to play with the settings.
+`-t` specifies areas around the TSS to exclude peaks for stitching. Can be omitted if wanted. ROSE is stupid and won't run properly if the output folder isn't a new folder. Be sure to delete old results or specify a new output folder before running again if you want to play with the settings. The `-c CONTROL_BAM` can also be added here if wanted.
 
 **Bash script (ROSE_ind.sh)**
 ```Bash
