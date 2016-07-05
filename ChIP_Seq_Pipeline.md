@@ -450,7 +450,11 @@ qsub -I -l nodes=1:ppn=1,walltime=24:00:00,vmem=32gb
 
 module load bedtools2
 
-for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch8*; do cd "$fold"; for f in *.BL_removed.bam; do echo "$f"; python /scratch/jandrews/bin/bam_to_RPM_bigwig.py "$f" "${f%.*}".bw; done; done
+for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch8*; do 
+	cd "$fold"; for f in *.BL_removed.bam; do 
+		echo "$f"; python /scratch/jandrews/bin/bam_to_RPM_bigwig.py "$f" "${f%.*}".bw; 
+	done; 
+done
 ```
 
 ---
