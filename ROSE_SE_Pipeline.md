@@ -1,6 +1,6 @@
 # Super Enhancer Calling
 
-**Last edited 06/30/2016**
+**Last edited 07/11/2016**
 
 A super enhancer pipeline using [ROSE](https://bitbucket.org/young_computation/rose) - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easily be combined/piped together.
 
@@ -552,15 +552,44 @@ This helps compare between samples. Definitely recommend doing this before compa
 python /scratch/jandrews/bin/quantile_normalize.py RECURRENT_FLDL_CCCB_ONLY_SE_SIGNAL.py
 ```
 
+#### 5.) Add back in samples called in column.
+I just use excel and add all of the samples each SE was called in to the **5th column** (before the signal data actually starts). We'll then use this table to look at the SEs called only in a single sample to determine whether to exclude them or not.
+
+#### 6.) Look at individual SE signal distributions.
+This script takes all the SEs called in a single sample and basically compares the signal of that sample to the distribution of signal across all the other samples. You can set a cutoff in standard deviations to optionally exclude SEs that don't meet the cutoff (i.e., ensure the SE really is *that* different in that sample versus the others). If you don't use the exclude option (-e), it will just print the SDs above/below the mean in an additional column for SEs only called in one sample.
+
+This script will also create a distribution plot for the SEs in the output file. It shows the average SDs above/below the mean for each SE using samples in which the SE was actually called. It is quite useful for *corroborating* with copy number data (i.e., **SEs with very high SDs over the mean** (>3) are usually only present in one sample, and that sample often has an amplification at that location).
+
+**Python script (filter_single_SEs.py)**:  
+```Python
+For a given bed-like table of QN'd SE signals, determine which of those called in single samples
+are actually much different from the mean signal across all the samples in the file. Outputs a new
+table with an additional column specifying the number of SDs from the mean for each SE called in
+only one sample. Those that don't meet the user-sepcified cutoff can be excluded from output if 
+wanted. It will also create a distribution plot for the SEs in the output file.
+
+Usage: python3 filter_single_SEs.py -i <input.bed> -o <output.bed> [OPTIONS]
+
+Args:
+    (required) -i <input.bed> = Name of bed-like table with QN'd SE signal data starting in the 6th 
+        column. Requires the samples in which the SE was called in a semi-colon delimited list in 
+        the 5th column.
+    (required) -o <output.bed> = Name of output file to be created.
+    (optional) -e = Option that when used, will not print lines that don't meet the specified 
+        cutoff. default: False. 
+    (optional) -t <threshold> = Numeric value for SDs above/below mean to use with exclude option.
+        default: 2.0
+```
+
 Now you can do whatever you like with the table you have. Calculating p-values using t-tests in Excel is **probably the easiest/most useful way forward**. It will tell you which SEs are significantly different between the various groups.
 
 Below is an **old method** I've used to determine how "unique" each SE is (hint: **not very**). It's tough to determine if an SE "specific" to a given cell type is just barely missing the cutoff in samples of another cell type. This approach *tries* to give an idea of this, but it's not a perfect way to do so. The p-value approach above is probably easier, realistically.
 
-#### 5.) Plot data.
+#### 7.) Plot data.
 Create a line graph with each SE as a data series, plotting a line for each SE showing signal in each sample will help you determine how "unique" they really are. I like to take the signal from the Unique SEs of each cell type for each sample, copy them into excel, and calculate the log2(FC) of K27AC signal for each SE over the median enhancer for that sample. Figure out the median enhancer for each sample from the all_enhancer output table from ROSE - includes the signal so you can use to it calculate foldchange. Can then smash these FC ratios for the SEs unique to each cell type together and create a heatmap in R. This gives a better representation of how "unique" the calls really are, as it's comparing within the samples themselves.
 
 
-#### 6.) Create said heatmap in R. 
+#### 8.) Create said heatmap in R. 
 Keep Rowv = False to keep rows in order. I usually save several variations of each heatmap.  
 
 ```R
