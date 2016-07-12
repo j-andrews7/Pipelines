@@ -1,0 +1,16 @@
+$input_filename =~ /ENCODETfbs(\S+)(\d+)(\S+)\|/; 
+
+my $output_filename = $1.$2.$3.'.bed';
+
+my $replace_string = $1.'_'.$3;
+
+open FILE, $input_filename;
+
+open OUT, ">$output_filename";
+
+while(<FILE>)
+{
+s/\./$replace_string/;
+
+print OUT $_;
+}
