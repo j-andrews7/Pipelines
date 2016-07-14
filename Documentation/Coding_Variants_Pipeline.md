@@ -32,7 +32,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Variant Effect Predictor](http://useast.ensembl.org/info/docs/tools/vep/index.html)
 
 **SECTIONS**
-I recommend just going through these in order.
+I recommend just going through these in order, though the RNA-seq & ChIP-seq data can be processed in parallel up to a certain point.
 - [Variant Calling from RNA-seq Data](#variant-calling-from-rna-seq-data)
 - [Variant Calling from ChIP-seq Data](#variant-calling-from-chip-seq-data)
 - [Creating Mutational Signatures](#create-mutational-signatures)
@@ -42,8 +42,39 @@ I recommend just going through these in order.
 ## Variant Calling From RNA-seq
 This section will call variants from RNA-seq data using both VarScan and bcftools (samtools). 
 
+#### 0.) Mark duplicates if you haven't already.
+PCR duplicates and such can affect variant calling in a big way, apparently. We mark them here so that `samtools mpileup` will ignore them (which it does by default once they're marked).
+
+**Bash script (mark_duplicates.sh):**  
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N MARK_DUPS
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=32gb
+
+module load java
+module load R
+
+for fold in /scratch/jandrews/Data/RNA_Seq/ALIGNED_BAMs/Batch*/; do
+
+	cd "$fold"
+	for f in *.sorted.bam; do
+		echo "$f"
+		base=${f%%.*}
+		java -jar /export/picard-tools-2.0.1/picard.jar	MarkDuplicates INPUT="$f" OUTPUT="$base".dups_rmvd.bam METRICS_FILE="$base".dup_metrics.txt ;
+	wait
+	done	
+wait
+done
+
+module remove R
+module remove java
+```
+
 #### 1A.) Call variants with VarScan.
-samtools: mpileup piped to varscan to call variants with filters for read depth (5) and quality (15).
+samtools: mpileup piped to varscan to call variants with filters for read depth (10) and quality (15). Get to submit this guy for every file, fun fun. Could be done in a better way, but I'm lazy and don't want to wait.
 
 **Bash script (var_call_varscan.sh):**
 ```Bash
@@ -52,19 +83,17 @@ samtools: mpileup piped to varscan to call variants with filters for read depth 
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N Var_Call_VarScan
 #PBS -m e
-#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=24gb
+#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=48gb
 
-module load samtools-1.2
-module load bcftools-1.2
+module load samtools
 
-for file in /scratch/jandrews/Data/RNA_Seq/ALIGNED_BAMs/Batch28/*.bam; do
+for file in /scratch/jandrews/Data/RNA_Seq/ALIGNED_BAMs/Batch28/*dups_marked.bam; do
 
-	samtools mpileup -t DP -f /scratch/jandrews/Ref/hg19.fa $file | java -Xmx15g -jar /scratch/jandrews/bin/VarScan.v2.3.9.jar mpileup2cns --min-coverage 5 --min-avg-qual 15 --variants 1 --output-vcf 1 >"$file".vs.vcf  &
+	samtools mpileup -t DP -f /scratch/jandrews/Ref/hg19.fa $file | java -Xmx15g -jar /scratch/jandrews/bin/VarScan.v2.3.9.jar mpileup2cns --min-coverage 10 --min-avg-qual 15 --variants 1 --output-vcf 1 >"$file".vs.vcf  &
 	
 done
 wait
-module remove samtools-1.2
-module remove bcftools-1.2
+module remove samtools
 ```
 
 #### 1B i.) Call variants with bcftools (samtools).
@@ -76,8 +105,8 @@ module remove bcftools-1.2
 #PBS -m e
 #PBS -l nodes=1:ppn=1,walltime=8:00:00,vmem=16gb
 
-module load samtools-1.2
-module load bcftools-1.2
+module load samtools
+module load bcftools
 
 for file in /scratch/jandrews/Data/RNA_Seq/ALIGNED_BAMs/Batch9/*.bam; do
 
@@ -85,8 +114,8 @@ for file in /scratch/jandrews/Data/RNA_Seq/ALIGNED_BAMs/Batch9/*.bam; do
 	
 done
 wait
-module remove samtools-1.2
-module remove bcftools-1.2
+module remove samtools
+module remove bcftools
 ```
 
 
@@ -94,12 +123,12 @@ module remove bcftools-1.2
 Filter the BCFtools VCFs for the same quality and read-depth that VarScan used.
 
 ```Bash
-module load bcftools-1.2
+module load bcftools
 for f in *.vcf; do
     base=${f##*/}
-    bcftools filter -i 'DP>=5 & QUAL>=15' "$f" > ${base%.*}.filtered.vcf
+    bcftools filter -i 'DP>=10 & QUAL>=15' "$f" > ${base%.*}.filtered.vcf
 done
-module remove bcftools-1.2
+module remove bcftools
 ```
 
 At this point, I also did a comparison between the SNP arrays with these callers, which is explained [below](#comparison) after the rest of the pipeline. 
@@ -139,16 +168,16 @@ First, those from VarScan with each other. Then those from BCFTools with each ot
 
 **For VarScan:**
 ```Bash
-module load bcftools-1.2
+module load bcftools
 bcftools merge -O v -m none --force-samples -i ADP:sum *.gz > merge.vcf
-module remove bcftools-1.2
+module remove bcftools
 ```
 
 **For BCFTools:**
 ```Bash
-module load bcftools-1.2
+module load bcftools
 bcftools merge -O v -m none -i DP:sum *.gz > merge.vcf
-module remove bcftools-1.2
+module remove bcftools
 ```
 
 #### 6.) Fix headers.
