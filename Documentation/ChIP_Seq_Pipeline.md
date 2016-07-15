@@ -104,12 +104,43 @@ wait
 module remove samtools-1.2
 ```
 
+#### 5.) Remove PCR duplicates from BAMs.
+This helps to reduce noise without really affecting sensitivity.
 
-#### 5.) Index the blacklist removed BAMs.  
+**Bash script (bam_remove_dups.sh):**  
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N REMOVE_DUPS
+#PBS -m e
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=48gb
+
+module load java
+module load R
+
+for fold in /scratch/jandrews/Data/ChIP_Seq/K27AC/Batch*/; do
+
+		cd "$fold"
+		for f in *.BL_removed.bam; do
+			echo "$f"
+			base=${f%%.*}
+			java -jar /export/picard-tools-2.0.1/picard.jar	MarkDuplicates INPUT="$f" OUTPUT="$base".dups_rmvd.bam REMOVE_DUPLICATES=true METRICS_FILE="$base".dup_metrics.txt &
+		wait
+		rename .dups_rmvd.bam .BL_rmvd.dups_rmvd.sorted.bam *.dups_rmvd.bam
+		done	
+wait
+done
+
+module remove R
+module remove java
+```
+
+#### 6.) Index the blacklist removed BAMs.  
 Same command used previous.  
 
 
-#### 6.) Call peaks with MACS.  
+#### 7.) Call peaks with MACS.  
 Ensure the `--shiftsize` option is appropriate for your data. For FAIRE I use `--shiftsize=50`, for K4ME3 `--shiftsize=100`, and for other histone marks I use `--shiftsize=150`. For TFs, I usually see things in the `--shiftsize=50 to 100` range, but it's probably worth trying to read more about it. Or trying to let MACS figure out the shiftsize itself (remove the `--nomodel` & `--shiftsize` options).
 
 **Bash script (peak_call_bl_rmvd.sh and variations)**  
