@@ -201,7 +201,10 @@ We need to do a few things before we can plot the data. First, the bins with mul
 ```Bash
 qsub -I -l nodes=1:ppn=4,walltime=15:00:00,vmem=16gb
 
-python /scratch/jandrews/bin/condense_cn_matrices.py \ /scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_AMPS_MATRIX_5KB.bed \ /scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_DELS_MATRIX_5KB.bed \ /scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_CN_MATRIX_5KB.bed \
+python /scratch/jandrews/bin/condense_cn_matrices.py \
+/scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_AMPS_MATRIX_5KB.bed \
+/scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_DELS_MATRIX_5KB.bed \
+/scratch/jandrews/Data/CN_Analyses/CNVs_By_Cell_Type/CNV_MCRs/FLDL_CN_MATRIX_5KB.bed \
 
 ```
 
