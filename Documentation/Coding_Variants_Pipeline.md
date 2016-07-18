@@ -138,7 +138,7 @@ At this point, I also did a comparison between the SNP arrays with these callers
 ```Bash
 for file in *.vcf; do
 	base=${file%%_*} ;
-	(sed '/_g/d' "$file" | sed '/chrM/d' | sed '/chrY/d') > "$base"_RNAseq_VS_clean.vcf ;
+	(sed '/_g\|chrM\|chrY\|chrX\|chr23/d' "$file") > "$base"_RNAseq_VS_clean.vcf ;
 done
 ```
 
