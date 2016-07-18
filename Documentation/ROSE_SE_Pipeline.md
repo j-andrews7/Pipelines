@@ -20,6 +20,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - This should be available on the CHPC cluster.
 - [Python3](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
+  - Probably a small number of packages as well. `pip install` is your friend.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
   
@@ -28,10 +29,14 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Determine Unique SEs](#determine-unique-ses)
 - [Get SE Signal](#get-se-signal-for-each-sample)
 - [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
+- [Create genome wide plots to display differences between samples](#genome-wide-plots)
+  - This is particularly good for comparing to the CNV plots.
 
 ---
 
 ## SE Calling
+This section is pretty straight-forward. Realistically, the annotation step probably isn't super necessary, since you can re-annotate later pretty easily. 
+
 #### 1A.) Sort BAMs first. 
 **Bash script (bam_sort.sh)**
 ```Bash
