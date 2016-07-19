@@ -667,3 +667,75 @@ bedtools intersect -wa -a Recurrent_All_SEs.bed -b K4ME3_merged_peaks_ranked_by_
 ```
 
 Can now make charts or whatever you want. 
+
+---
+
+## Genome wide plots  
+Similar to the CN plots, this lets you view all the SEs for all samples across the genome. It's useful for comparisons to copy number info.
+
+#### 1.) Calculate SD differences for samples.  
+From the QN'd signal for all SEs, find the standard deviation, average, median, etc for each SE and the difference in standard deviations for each sample from the mean. Does the same for the median absolute deviation. Also creates rugplots for each SE using the standard deviation differences.
+
+**Python script (SE_dists.py):**  
+```Python
+"""
+For a given bed-like table of QN'd SE signals, creates distribution plots for each SE. Outputs a new
+table with additional columns specifying the number of SDs from the mean each sample is for each
+SE. Makes a figure for each row.
+
+Usage: python3 SE_dists.py -i <input.bed> -o <output.bed>
+
+Args:
+    (required) -i <input.bed> = Name of bed-like table with QN'd SE signal data starting in the 6th
+        column. A unique ID should be present for each row in the 4th column.
+    (required) -o <output.bed> = Name of output file to be created.
+"""
+```
+
+#### 2.) Create new table.  
+From the resulting table of the last step, create a table containing only the genomic positions (first three columns), followed by the SD diffs for each sample. Leave off the header for now. Can do this all in Excel.
+
+#### 3.) Intersect with binned genome.
+File order is important here. Cut out the position bin positions and actual data and stick them in a new file.
+
+```Bash
+module load bedtools2
+
+bedtools intersect -loj -a /scratch/jandrews/Ref/hg19.100kb_bins.bed -b QN_FLDL_CCCB_ONLY_SES_SIGNAL_NO_CHRX_SAMPLES_SD_DIFF_SELECT.bed | cut -f1-3,7-28 > QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed
+```
+
+#### 4.) Remove regions that don't align.  
+Remove regions of the genome that don't align, are around centromeres, etc.
+
+```Bash
+ bedtools intersect -v -a QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed -b /scratch/jandrews/Ref/hg19_cn_exclusions.bed | sort -V -k1,1 -k2,2n > QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed.exclude
+ rename .bed.exclude .bed QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed.exclude 
+```
+
+#### 5.) Break up by chromosome.  
+These plots are usually better on a chromosome by chromosome basis, so we can go ahead and make files containing only a single chromosome as well.
+
+```Bash
+mkdir 100KB_SPLIT_RESULTS
+
+for chr in `cut -f 1 QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed | uniq`; do         
+	grep -w $chr QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed > 100KB_SPLIT_RESULTS/$chr.QN_FLDL_CCCB_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed; 
+done
+```
+
+#### 6.) Add header back to files.  
+Labels are good.
+
+```Bash
+for f in *.bed; do { printf 'CHROM        START   END     CB011514_SDs_AROUND_MEAN        CB012214_SDs_AROUND_MEAN        CB021314_SDs_AROUND_MEAN        CC011514_SDs_AROUND_MEAN        CC012214_SDs_AROUND_MEAN        CC021314_SDs_AROUND_MEAN        DL135_SDs_AROUND_MEAN   DL188_SDs_AROUND_MEAN   DL237_SDs_AROUND_MEAN   DL252_SDs_AROUND_MEAN   DL273_SDs_AROUND_MEAN   DL3A538_SDs_AROUND_MEAN DL551_SDs_AROUND_MEAN   FL153_SDs_AROUND_MEAN   FL174_SDs_AROUND_MEAN   FL202_SDs_AROUND_MEAN   FL238_SDs_AROUND_MEAN   FL255_SDs_AROUND_MEAN   FL301_SDs_AROUND_MEAN   FL303_SDs_AROUND_MEAN   FL313_SDs_AROUND_MEAN   FL3A145_SDs_AROUND_MEAN\n'; cat "$f"; } > "$f".temp; mv "$f".temp "$f"; done
+```
+
+#### 7.) Create plots.
+This script will take a table and make a heatmap from the SD diffs. This script can be edited to change the colors, ranges, size of the figure, etc. I like using PDF output so I can load it into Inkscape after the fact and edit as I want without losing quality. 
+
+```Python
+for f in *.bed; do
+	python plot_se_bins.py "$f"
+done
+```
+
