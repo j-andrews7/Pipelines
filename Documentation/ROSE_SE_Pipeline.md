@@ -494,7 +494,7 @@ python parse_multiinter_output.py All_SEs_multiinter.bed
 
 ## Get SE Signal for Each Sample
 
-The signal for each SE for each sample can be useful for calculating things like fold-change, determining significance, etc.
+The signal for each SE for each sample can be useful for calculating things like fold-change, determining significance, etc. This can really be done with any BED file containing genomic regions (MMPIDs, promoters, whatever).
 
 #### 1.) Convert the BED file for All_SEs to GFF format. 
 ```Bash
@@ -701,25 +701,25 @@ File order is important here. Cut out the position bin positions and actual data
 ```Bash
 module load bedtools2
 
-bedtools intersect -loj -a /scratch/jandrews/Ref/hg19.100kb_bins.bed -b QN_FLDL_CCCB_ONLY_SES_SIGNAL_NO_CHRX_SAMPLES_SD_DIFF_SELECT.bed | cut -f1-3,7-28 > QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed
+bedtools intersect -loj -a /scratch/jandrews/Ref/hg19.5kb_bins.bed -b QN_FLDL_CCCB_ONLY_SES_SIGNAL_NO_CHRX_SAMPLES_SD_DIFF_SELECT.bed | cut -f1-3,7-28 > QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed
 ```
 
 #### 4.) Remove regions that don't align.  
 Remove regions of the genome that don't align, are around centromeres, etc.
 
 ```Bash
- bedtools intersect -v -a QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed -b /scratch/jandrews/Ref/hg19_cn_exclusions.bed | sort -V -k1,1 -k2,2n > QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed.exclude
- rename .bed.exclude .bed QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed.exclude 
+ bedtools intersect -v -a QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed -b /scratch/jandrews/Ref/hg19_cn_exclusions.bed | sort -V -k1,1 -k2,2n > QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed.exclude
+ rename .bed.exclude .bed QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed.exclude 
 ```
 
 #### 5.) Break up by chromosome.  
 These plots are usually better on a chromosome by chromosome basis, so we can go ahead and make files containing only a single chromosome as well.
 
 ```Bash
-mkdir 100KB_SPLIT_RESULTS
+mkdir 5KB_SPLIT_RESULTS
 
-for chr in `cut -f 1 QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed | uniq`; do         
-	grep -w $chr QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed > 100KB_SPLIT_RESULTS/$chr.QN_FLDL_CCCB_SE_SIGNAL_SD_DIFF_MATRIX.100KB_BINS.bed; 
+for chr in `cut -f 1 QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed | uniq`; do         
+	grep -w $chr QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed > 5KB_SPLIT_RESULTS/$chr.QN_FLDL_CCCB_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed; 
 done
 ```
 
