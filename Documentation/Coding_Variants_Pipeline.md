@@ -245,8 +245,9 @@ java -Xmx15g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.ja
 ```
 
 
-#### 8.) Annotate with VEP (twice). 
+#### 8.) Annotate with VEP. 
 This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
+
 ```Bash
 for f in *.gz; 
 	do perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --fork 2 --check_existing --biotype --gencode_basic --hgvs --canonical --uniprot --variant_class --gmaf --maf_1kg --maf_esp --polyphen b --regulatory --sift b --species homo_sapiens --symbol --cache --port 3337 --vcf --stats_file "$f".stats.html --input_file "$f" -o "$f".VEP_Anno; 
@@ -344,7 +345,7 @@ python /scratch/jandrews/bin/make_trinuc_matrices.py -i /vcf_directory -o FLDLCL
 ```
 
 #### 5.) Create mutational signatures.
-I use R studio for this and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out. Just import the matrix file we created in the last step, convert it to a matrix, and plug it into the commands above.
+I use R studio and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out. Just import the matrix file we created in the last step, convert it to a matrix, and plug it into the commands above.
 
 Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them.
 
