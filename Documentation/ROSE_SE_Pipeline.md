@@ -510,13 +510,15 @@ Move the GFF files into a new folder and run below script to get RPM'd K27AC loa
 
 > This can be finicky and at times will randomly not run on the cluster if run as a job (**literally** no idea why). Just run from within the rose bin folder if so - copy and paste commands from here.
 
+**Note:** This can also be used to get the load for pretty much any genomic regions. You may have to copy and paste your other info columns (IDs, etc) back after all of this, but it's no biggie.
+
 **Batch script (ROSE_get_load.sh)**
 ```Bash
 #!/bin/sh
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N GET_SE_LOAD_DL
 #PBS -m e
-#PBS -l nodes=1:ppn=4,walltime=8:00:00,vmem=12gb
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb
 
 module load samtools-1.2
 module load R
@@ -539,14 +541,14 @@ module remove R
 ```
 
 #### 3.) Calculate signal at each SE.
-Within the folder for K27AC load of unique SEs for each cell type (4 in this case), run script to calculate signal from the RPM values in each GFF file. **(signal = RPM (density) * length of SE)**. This is how ROSE calculates it. This script will take each file in the folder and essentially intersect them, yielding a single file in BED-type format with the K27AC signal for each sample at each SE so that they may be easily plotted/manipulated. It will also add an SE_ID for each SE to the 4th column for easy reference later. I create a folder for 'Included' samples and 'Excluded' ones, as the previous step gets the load for **all the BAMs**, many of which I don't care about since their SEs were ignored anyway.
+Within the folder for K27AC load of unique SEs for each cell type (4 in this case), run script to calculate signal from the RPM values in each GFF file. **(signal = RPM (density) * length of element)**. This is how ROSE calculates it. This script will take each file in the folder and essentially intersect them, yielding a single file in BED-type format with the K27AC signal for each sample at each SE so that they may be easily plotted/manipulated. I create a folder for 'Included' samples and 'Excluded' ones, as the previous step gets the load for **all the BAMs**, many of which I don't care about since their SEs were ignored anyway.
 
-**Python script (calc_SE_signal.py)**
+**Python script (calc_chip_signal.py)**
 ```Bash
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python /scratch/jandrews/bin/calc_SE_signal.py <output.bed> <gff files>
+python /scratch/jandrews/bin/calc_chip_signal.py <output.bed> <gff files>
 ```
 
 #### 4.) Quantile normalize (semi-optional).
