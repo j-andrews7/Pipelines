@@ -85,11 +85,13 @@ def main(input_file):
 	row_labels, data_dict = ParseFile(input_file)  # Get the data needed.
 
 	df = pd.DataFrame(data_dict, index=row_labels)  # Create the dataframe.
-	plt.figure(figsize=(140,330), dpi=1200)
+	# EDIT figure size here if wanted.
+	plt.figure(figsize=(8,11), dpi=1200)
 	colors = ['black', "#8c510a", "#f5f5f5", "#01665e"]  # Set colors [2 to -1]. Can use html hex codes, recognized html colors, or rgb triplets.
 	cmap = ListedColormap(colors, name="cmap", N=4)  # Change N if you have a greater range.
 	heatmap = sns.heatmap(df, cbar=False, cmap=cmap, vmin=-1, vmax=2, yticklabels=False)  # Create the plot without a color bar or y axis labels.
-	out_name = input_file.split(".")[0] + ".png"
+	plt.xticks(rotation=90)
+	out_name = input_file.split(".")[0] + ".pdf"  # Can just change the extension here to change output format.
 	heatmap.figure.savefig(out_name)
 
 

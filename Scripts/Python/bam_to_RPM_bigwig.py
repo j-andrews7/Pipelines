@@ -11,17 +11,15 @@ Usage: python3 bam_to_RPM_bigwig.py <input.bam> <output.bw>
 import sys
 import argparse
 from pybedtools.contrib.bigwig import bam_to_bigwig
-
-inp_fi = sys.argv[1]
-out_fi = sys.argv[2]
-
-
 """
 Module to help create scaled bigWig files from BAM
 """
 import pybedtools
 import os
 import subprocess
+
+inp_fi = sys.argv[1]
+out_fi = sys.argv[2]
 
 
 def mapped_read_count(bam, force=True):

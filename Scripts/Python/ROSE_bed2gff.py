@@ -9,32 +9,33 @@ Args:
 
 import sys
 
-#Store file names
+# Store file names
 input_file = sys.argv[1]
 base = input_file.split(".")[0]
 output_file = base + ".gff"
 
 with open(input_file) as f:
 
-	#Open output file, "w" to make it writable
+	# Open output file, "w" to make it writable
 	output_f = open(output_file, "w")
 
-	#Initiate variable to hold what next ID should be
-	ID = 1
+	# Initiate variable to hold what next ID should be
+	new_ID = 1
 
-	#Iterate through each line in input file
 	for line in f:
-
-		#Strip newline character and split line by white space
 		line = line.strip().split()
 
-		#Print to outputfile
+		# Handle if bed file already has an ID that should be retained.
+		if line[3] is not None and line[3] is not ".":
+			ID = line[3]
+		else:
+			ID = new_ID
+
 		print(line[0],ID,"RE",str(int(line[1]) + 1),line[2],".",".",".",ID,sep="\t", file=output_f)
 
-		#Increase ID by one for next line
-		ID += 1
+		# Increase ID by one for next line
+		new_ID += 1
 
-	#Close output file
 	output_f.close()
 
 print("COMPLETE")
