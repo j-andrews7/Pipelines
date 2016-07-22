@@ -1,5 +1,7 @@
 # Noncoding Variant Pipeline
-##### Up to date as of 07/21/2016.
+Up to date as of 07/22/2016.  
+Author: jared.andrews07@gmail.com
+
 This is an imitation of Liv's Noncoding Variant Calling Pipeline. Newer versions of the software, but ideally similar results. Much of this could likely be done more elegantly/efficiently, but I'm no wizard.   
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
