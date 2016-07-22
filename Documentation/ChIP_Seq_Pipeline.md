@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 06/17/2016**  
+**Last updated 07/22/2016**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.** The scripts were created/maintained **by 4 different people over several years**, though efforts have been made to streamline things recently.
@@ -225,11 +225,11 @@ python3 /scratch/jandrews/bin/add_MMPID_count_marks.py input.bed output.bed
 ```
 
 #### 5.) Bin the genome.  
-We need to create bins for the resolution we want to calculate RPM, do normalizations with, etc. Previously, we've done 200 bp bins, but I don't care how big the files are, so I'm doing 50 bp here. The `hg19.bed` file just contains the size of each chromosome - `chr1	249250621`, etc. 
+We need to create bins for the resolution we want to calculate RPM, do normalizations with, etc. Previously, we've done 200 bp bins, but I don't care how big the files are, so I'm doing 100 bp here. The `hg19.bed` file just contains the size of each chromosome - `chr1	249250621`, etc. 
 
 **Perl script (binning_genome_binnumrestart_JAedit.pl):**  
 ```Bash
-perl binning_genome_binnumrestart_JAedit.pl hg19.chrom.sizes hg19.50bp_bins.bed
+perl binning_genome_binnumrestart_JAedit.pl hg19.chrom.sizes hg19.100bp_bins.bed
 Input: 50
 ```
 
@@ -239,7 +239,7 @@ Also going to go ahead and cut a bunch of columns, grabbing only the ones for th
 ```Bash
 module load bedtools2
 
-bedtools intersect -wa -wb -a /scratch/jandrews/Ref/hg19.50bp_bins.bed -b merged_peaks_ID.bed | cut -f1-4,8 - | sort -k1,1 -k2,2n - > merged_peaks_bins_intersect.bed
+bedtools intersect -wa -wb -a /scratch/jandrews/Ref/hg19.100bp_bins.bed -b merged_peaks_ID.bed | cut -f1-4,8 - | sort -k1,1 -k2,2n - > merged_peaks_bins_intersect.bed
 ```
 
 Now we can set this file aside while we normalize the actual signal for each sample.
@@ -250,7 +250,7 @@ Now we can set this file aside while we normalize the actual signal for each sam
 This section shows how to process the wig files output from MACS to get the load for each sample across the genome.
 
 #### 1.) Bin the wig files.  
-This script breaks the wig files up into 50 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 50. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample. Also be sure edit the path within the Perl script to your `chrom.sizes` file. 
+This script breaks the wig files up into 100 bp bins with the signal for each sample. You can edit the `$bin_size` variable at the beginning of the script to adjust the bin size to match the bins you used for your `peaks.bed` file if it's not 100. We don't need to do this for any control/input samples we have. This will output a `.bin` file for each sample. Also be sure edit the path within the Perl script to your `chrom.sizes` file. 
 
 This Perl script **sucks** and is incredibly slow. Run it overnight if you're doing it on a large number of files. I break it up into batches so that it can run on files in parallel.
 
@@ -299,7 +299,7 @@ Now we want to add the chromosome positions of each bin in between the chromosom
 
 **Perl script (bin_to_chromcoords_JAedit.pl):**   
 ```Bash
-perl /scratch/jandrews/bin/bin_to_chromcoords_JAedit.pl /scratch/jandrews/Ref/hg19.50bp_bins.bed master_table.bin
+perl /scratch/jandrews/bin/bin_to_chromcoords_JAedit.pl /scratch/jandrews/Ref/hg19.100bp_bins.bed master_table.bin
 Input prompt args: 3 2 1
 ```
 
@@ -473,7 +473,7 @@ python3 /scratch/jandrews/bin/avg_fc_vals_by_celltype.py -i QN_master_table_RPKM
 ---
 
 ## Making Tracks
-This command will allow you to make **RPM** (reads per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires **pybedtools** - `pip install pybedtools` and bedtools in your path. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
+This script will allow you to make **RPM** (reads per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires **pybedtools** - `pip install pybedtools` and bedtools in your path. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
 
 **Python script (bam_to_RPM_bigwig.py):**  
 ```Bash
