@@ -1,5 +1,5 @@
 # Noncoding Variant Pipeline
-##### Up to date as of 04/12/2016.
+##### Up to date as of 07/21/2016.
 This is an imitation of Liv's Noncoding Variant Calling Pipeline. Newer versions of the software, but ideally similar results. Much of this could likely be done more elegantly/efficiently, but I'm no wizard.   
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
@@ -24,7 +24,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 
 ---
-##### 1.) Call variants and generate VCFs for all BAM files for all samples.  
+#### 1.) Call variants and generate VCFs for all BAM files for all samples.  
 The BAMs should be broken up into batches as shown here if you want them to run **asynchronously**. If time isn't important to you, just delete the `&` and `wait` from the script below and throw all the BAMs in the same folder. Just be sure to allocate enough time to the script, as it'll take a while (days) when done this way.
 >The `&` at the end of a command in a bash script means it **will not wait for the command to complete** before moving to the next.   
 
@@ -53,7 +53,7 @@ module remove samtools-1.2
 module remove bcftools-1.2
 ```  
 
-##### 2.) Add qual value for each sample to the INFO field of its VCF.
+#### 2.) Add qual value for each sample to the INFO field of its VCF.
 INFO fields can have operations done on them during the merge, whereas for the QUAL score, the max value across samples are taken (while we want the average). So we add a custom info field.
 
 ```Bash
@@ -65,21 +65,21 @@ for file in *.vcf; do
 done
 ```
 
-##### 3.) Remove garbage chromosomes from VCF.
+#### 3.) Remove garbage chromosomes from VCF.
 ```Bash
 for file in *.vcf; do
 	sed -i '/_g\|chrM\|chrY/d' "$file";
 done
 ```
 
-##### 4.) Sort VCFs.
+#### 4.) Sort VCFs.
 ```Bash
 for f in *.vcf; do
 	vcf-sort "$f" > "$f".sorted ;
 done
 ```
 
-##### 5.) Zip and index each VCF.
+#### 5.) Zip and index each VCF.
 ```Bash
 for f in *.vcf; do
 	bgzip -c "$f" > "$f".gz;
@@ -90,10 +90,10 @@ for f in *.gz; do
 done
 ```
 
-##### 6.) Organize.
+#### 6.) Organize.
 Copy all VCF.gz and VCF.gz.tbi files for a given sample into an empty directory.  
 
-##### 7.) Merge the VCFs for each sample.
+#### 7.) Merge the VCFs for each sample.
 This *sums* read depth (DP) and *averages* quality values (QV) for each file (histone mark) used for the sample.  
 **Bash script (merge_samp_vcfs.sh)**:
 ```Bash
@@ -118,7 +118,7 @@ done
 module remove bcftools-1.2
 ```
 
-##### 8.) Fix header of the resulting merged VCF for each sample.
+#### 8.) Fix header of the resulting merged VCF for each sample.
 Shortens the column headers to (sample_mark). This also fixes other header inconcistencies like case, extra underscores, etc.  
 **Python script (shorten_vcf_header.py)**:
 ```Bash
@@ -130,7 +130,7 @@ for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/VCFs_With_Quals/In
 done
 ```
 
-##### 9.) Zip and index the VCF for each sample, then filter for >=10 summed DP.
+#### 9.) Zip and index the VCF for each sample, then filter for >=10 summed DP.
 Those that don't meet the read depth cutoff are removed.  
 
 **Bash script (process_samp_vcfs.sh):**  
@@ -154,7 +154,7 @@ done
 module remove bcftools-1.2
 ```
 
-##### 10.) Remove single-mark variants from the VCF for each sample. 
+#### 10.) Remove single-mark variants from the VCF for each sample. 
 We're only interested in those that occur in multiple data types (histone marks) for a given sample so that we can be sure they aren't artifacts of a specific histone mark, etc. As such, this removes those that only occur in a single histone mark (or data type).  
 
 **NOTE:** _Format of samples in the header must be **'sample_mark'**._
@@ -169,37 +169,15 @@ for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFs_wQVs/IND_
 done
 ```
 
-##### 11.) Convert VCFs to BED files for easy intersecting later. 
-Will use these to determine those variants removed by FunSeq after annotation and generate a list of all variants, annotated or not.
-
-```Bash
-export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-source activate anaconda
-for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFs_wQVs/IND_SAMP_MERGED/*/; do
-	cd "$fold"
-	vcf2bed --do-not-split-alt-alleles < ${PWD##*/}_variants_filtered_multimark.vcf > ${PWD##*/}_variants_filtered_multimark.bed
-done
-```
-
-##### 12.) Annotate with [FunSeq2](http://funseq2.gersteinlab.org/analysis) twice.
-USE a MAF of both 0.01 and 1 to remove known SNPs found in the 1000 genomes project. Even common SNPs may be interesting on a contextual basic, so using a MAF of 1 will keep those removed to a minimum (also useful for rolling those annotated as "coding" into the coding variant pipeline"). Use the **BED output option**, as the VCF output doesn't get formatted properly. Upload all the VCFs for the samples you want to compare at once. Click the green button to add additional files. As far as I know, there is no limit. Download the output files.
-
-
-##### 13.) Parse the FunSeq output (Output.BED). 
-This will filter any variants that are said to affect coding sequences by FunSeq and stick them in a **separate** file (which is useful if you want to actually include them in a coding variant analysis). It prints four files for each sample - one with the positions of the variants, the other with the full lines for the sample variants that meet the above requirements. To exclude those found in any of the other samples provided to FunSeq as well, use the `-uniq` option.
-
-**Python script (parse_funseq.py):**  
-`python3 /scratch/jandrews/bin/parse_funseq.py FLDL_filtered_multitype_funseq_variants.bed`
-
 
   
-# Intersections with features of interest
+## Intersections with features of interest
 
 Intersect the resulting multimark, filtered variants file for each sample with SEs, regular enhancers, and TSSs to determine the percentage of SNVs for file found in each. Make sure to always sort and remove dups first, as it'll skew your results otherwise. Some of the MMPIDs and such may have duplicates due to the way they were acquired, hence why this is necessary.
 
 This same principle can be applied to intersections with whatever you want (TF motifs, regulatory elements, etc). Here I show intersections with **super enhancers, regular enhancers (FAIRE-positive, non-TSS MMPIDs that aren't located within SEs), TSSs, and TSSs located within SEs.**
 
-##### 1.) Intersect TSSs with SEs to get those that lie within/outside the SEs. 
+#### 1.) Intersect TSSs with SEs to get those that lie within/outside the SEs. 
 The TSS file here can be found on the Payton Shared Drive in the master files folder (and probably about ten other places as well).
 
 ```Bash
@@ -213,7 +191,7 @@ bedtools intersect -v -a 2kbTSStranscripts_gencode19_protein_coding_positions.be
 ```  
 
   
-##### 2.) Intersect FAIRE-positive MMPID positions with SEs to remove those that overlap  
+#### 2.) Intersect FAIRE-positive MMPID positions with SEs to remove those that overlap  
 Sort and remove dups (shouldn't be any in MMPID positions, though intersects may result in some - an MMPID in two SEs).
 ```
 sort -k1,1 -k2,2n MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS.bed | uniq - > MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed
@@ -225,7 +203,7 @@ bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b ../SE
 | uniq - > MMPID_NonTSS_FAIRE_POSITIVE_outsideSEs.bed
 ```
 
-##### 3.) Intersect the variants with features of interest
+#### 3.) Intersect the variants with features of interest
 This intersects the funseq annotated variants with the SEs, MMPIDs, and TSS positions created in previous steps. This will create a summary file for each sample with counts for each intersection. This filters out variants found near the Ig loci as well, though it does so in a lazy way and just removes all the variants in the region rather than only those that overlap with the Ig genes. Can edit  `/scrach/jandrews/Ref/Ig_Loci.bed` to change these positions.  
 
 **Bash script (isec_ind_samp_variants_wMMPIDs_SEs_TSS.sh):**
