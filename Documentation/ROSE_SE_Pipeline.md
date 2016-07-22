@@ -561,29 +561,23 @@ python /scratch/jandrews/bin/quantile_normalize.py RECURRENT_FLDL_CCCB_ONLY_SE_S
 I just use excel and add all of the samples each SE was called in to the **5th column** (before the signal data actually starts). We'll then use this table to look at the SEs called only in a single sample to determine whether to exclude them or not.
 
 #### 6.) Look at individual SE signal distributions.
-This script takes all the SEs called in a single sample and basically compares the signal of that sample to the distribution of signal across all the other samples. You can set a cutoff in standard deviations to optionally exclude SEs that don't meet the cutoff (i.e., ensure the SE really is *that* different in that sample versus the others). If you don't use the exclude option (-e), it will just print the SDs above/below the mean in an additional column for SEs only called in one sample.
 
-This script will also create a distribution plot for the SEs in the output file. It shows the average SDs above/below the mean for each SE using samples in which the SE was actually called. It is quite useful for *corroborating* with copy number data (i.e., **SEs with very high SDs over the mean** (>3) are usually only present in one sample, and that sample often has an amplification at that location).
+This script will create a distribution plot for the SEs in the output file. It shows the SDs above/below the mean for each SE for each sample (basically a z-score). Does the same for MADs, which are supposed to be more robust in that they aren't affected by outliers as strongly. It is quite useful for *corroborating* with copy number data (i.e., **SEs with very high SDs over the mean** (>3) are usually only present in one sample, and that sample often has an amplification at that location).
 
-**Python script (filter_single_SEs.py)**:  
+**Python script (SE_dists.py)**:  
 ```Python
-For a given bed-like table of QN'd SE signals, determine which of those called in single samples
-are actually much different from the mean signal across all the samples in the file. Outputs a new
-table with an additional column specifying the number of SDs from the mean for each SE called in
-only one sample. Those that don't meet the user-sepcified cutoff can be excluded from output if 
-wanted. It will also create a distribution plot for the SEs in the output file.
+"""
+For a given bed-like table of QN'd SE signals, creates distribution plots for each SE. Outputs a new
+table with additional columns specifying the number of SDs from the mean each sample is for each
+SE. Makes a figure for each row.
 
-Usage: python3 filter_single_SEs.py -i <input.bed> -o <output.bed> [OPTIONS]
+Usage: python3 SE_dists.py -i <input.bed> -o <output.bed>
 
 Args:
-    (required) -i <input.bed> = Name of bed-like table with QN'd SE signal data starting in the 6th 
-        column. Requires the samples in which the SE was called in a semi-colon delimited list in 
-        the 5th column.
+    (required) -i <input.bed> = Name of bed-like table with QN'd SE signal data starting in the 6th
+        column. A unique ID should be present for each row in the 4th column.
     (required) -o <output.bed> = Name of output file to be created.
-    (optional) -e = Option that when used, will not print lines that don't meet the specified 
-        cutoff. default: False. 
-    (optional) -t <threshold> = Numeric value for SDs above/below mean to use with exclude option.
-        default: 2.0
+"""
 ```
 
 Now you can do whatever you like with the table you have. Calculating p-values using t-tests in Excel is **probably the easiest/most useful way forward**. It will tell you which SEs are significantly different between the various groups.
