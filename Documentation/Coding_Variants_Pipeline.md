@@ -1,5 +1,5 @@
 # Coding Variants Pipeline
-**Up to date as of 07/22/2016.**  
+**Up to date as of 07/25/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
 ---
@@ -35,6 +35,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 I recommend just going through these in order, though the RNA-seq & ChIP-seq data can be processed in parallel up to a certain point.
 - [Variant Calling from RNA-seq Data](#variant-calling-from-rna-seq-data)
 - [Variant Calling from ChIP-seq Data](#variant-calling-from-chip-seq-data)
+- [Merging Variants from ChIP-seq/RNA-seq Data](#merging-all-variants)
 - [Creating Mutational Signatures](#create-mutational-signatures)
 
 ---
@@ -145,8 +146,8 @@ done
 #### 3.) Sort all VCFs.
 ```Bash
 for f in *.vcf; do
-   	base=${f%%_*} ;
-    vcf-sort "$f" > ${base}_RNAseq_VS_sorted.vcf ;
+	base=${f%%_*} ;
+	vcf-sort "$f" > ${base}_RNAseq_VS_sorted.vcf ;
 done
 ```
 
@@ -191,92 +192,16 @@ Now set these files aside and let's work on the ChIP-seq data.
 Here's how I identify variants from the ChIP-seq data. This is fairly stringent due to the low coverage, but hopefully it reduces false positives and ensures we don't waste time trying to validate mutations that aren't around.
 
 
-
-
-## Merging All Variants
-Now we can put the variants from the RNA-seq and ChIP-seq data together.
-
-#### 7.) Combine the BCFTools and VarScan files.
-This step was an **enormous** hassle to figure out.
-
-**i. Create a sequence dict for reference genome**  
-This has to be done for GATK/Picard tools to work properly.   
-**Bash script (create_ref_dict.sh):**
-```Bash
-#!/bin/sh
-
-# give the job a name to help keep track of running jobs (optional)
-#PBS -N CREATE_REF_DICT
-#PBS -m e
-#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=36gb
-#PBS -q old
-
-module load java
-java -jar /scratch/jandrews/bin/picard-tools-2.2.1/picard.jar CreateSequenceDictionary R= /scratch/jandrews/Ref/hg19.fa O= /scratch/jandrews/Ref/hg19.dict
-module remove java
-```
-
-**ii. Sort VCFs to same order as reference genome.**  
-I still don't get why the tools can't figure this out on their own, but again, a necessity.  
-
-```Bash
-perl /scratch/jandrews/bin/vcfsorter.pl /scratch/jandrews/Ref/hg19.dict merge_vs.vcf > merge_vs.sorted.vcf 2>STDERR
-perl /scratch/jandrews/bin/vcfsorter.pl /scratch/jandrews/Ref/hg19.dict merge_samtools.vcf > merge_samtools.sorted.vcf 2>STDERR
-```
-
-**iii. Combine the samtools and VarScan VCFs**  
-**Bash script (combine_merged_vcfs.sh):**
-```Bash
-#!/bin/sh
-
-# give the job a name to help keep track of running jobs (optional)
-#PBS -N COMBINE_VCFs
-#PBS -m e
-#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=36gb
-#PBS -q old
-
-java -Xmx15g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.jar \
-        -T CombineVariants \
-        -R /scratch/jandrews/Ref/hg19.fa \
-        --variant:bcftools /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/merge_samtools.sorted.vcf  \
-        --variant:varscan /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/merge_vs.sorted.vcf \
-        -o /scratch/jandrews/Data/Variant_Calling/Coding/FINAL/Coding_Variants_Combined.vcf \
-        -genotypeMergeOptions UNIQUIFY
-```
-
-
-#### 8.) Annotate with VEP. 
-This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
-
-```Bash
-for f in *.gz; 
-	do perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --fork 2 --check_existing --biotype --gencode_basic --hgvs --canonical --uniprot --variant_class --gmaf --maf_1kg --maf_esp --polyphen b --regulatory --sift b --species homo_sapiens --symbol --cache --port 3337 --vcf --stats_file "$f".stats.html --input_file "$f" -o "$f".VEP_Anno; 
-	rename .vcf.gz.VEP_Anno .VEP_Anno.vcf "$f".VEP_Anno; 
-done
-```
-
-#### 9.) Filter out common variants.
-This will remove the common variants (those with a MAF >0.01 in dbSNP build 146). I originally used the internal VEP filters that use the 1000 genomes project allele frequencies, but found that they don't have all the ones that dbSNP does. Since I use hg19 from UCSC as my reference genome, I had to download the common snps (146) track from UCSC as a `bed` file through the table browser to ensure correct positions. It creates a directory for each sample, so then you can go into each directory, and move the files up. Bedtools is *very* memory in-efficient when using a large file for `-b` as we are here, hence why I go ahead and use an interactive session with a ton of memory.
-
-```Bash
-qsub -I -l nodes=1:ppn=1,walltime=4:00:00,vmem=128gb 
-
-module load bedtools2
-
-for f in *VEP_Anno.vcf.gz; do bedtools intersect -v -header -a "$f" -b /scratch/jandrews/Ref/dbSNP146_common_variants.bed.gz > "${f%%.*}".VEP_Anno.dbSNP146_common_rmvd.vcf; done
-```
-
-
 ---
 
-## Create mutational signatures
-This will combine the noncoding and coding variants into a single file for a given sample, from which mutational signatures can be generated.
+## Merging All Variants  
+Now we can put the variants from the RNA-seq and ChIP-seq data together. Though Liv previously treated these sets separately, it becomes a *real* hassle to maintain several files for each sample. I have instead merged these sets for each sample, yielding a final, single VCF for each. 
 
 #### 1.) Pool files.
 Stick the VS, BCF, and filtered, multimark variant files from ChIP-seq data into the same folder.
 
 #### 2.) Fix headers.
-Be sure the file names are `sample_restofname.vcf` for each sample. Edit the header of the BCF and VS files in a text editor so they go `sample_BCF` or `sample_VS` accordingly. 
+Be sure the file names are `sample.restofname.vcf` for each sample. 
 
 #### 3.) Combine the BCFTools, VarScan, and noncoding files.
 This step was an **enormous** hassle to figure out. This will yield a single file for each sample with **all** variants in the sample.
@@ -326,16 +251,77 @@ module load java
 java -Xmx1g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.jar \
 	-T CombineVariants \
 	-R /scratch/jandrews/Ref/hg19.fa \
-	--variant:bcftools /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_RNAseq_BCF.sorted.vcf  \
-	--variant:varscan /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_RNAseq_VS.sorted.vcf \
-	--variant:chip_seq /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_variants_filtered_multimark.sorted.vcf \
-	-o /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp"_Combined.vcf \
+	--variant:bcftools /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp".RNAseq_BCF.sorted.vcf  \
+	--variant:varscan /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp".RNAseq_VS.sorted.vcf \
+	--variant:chip_seq /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp".variants_filtered_multimark.sorted.vcf \
+	-o /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp".Combined.vcf \
 	-genotypeMergeOptions UNIQUIFY 
 
 module remove java
 ```
 
-#### 4.) Create frequency matrix for SNVs.
+#### 5.) Filter those only found in one data set.  
+This will remove SNPs found only by one of the callers in the RNA-seq data and not corroborated by the ChIP-seq data. Those found in only the ChIP-seq set are retained, as they had to be called in two ChIP histone markers to even be included in that set.
+
+**Bash script (filter_singleset_vcfs.sh):**  
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N FILTER_SINGLESET_VCFs
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=24:00:00,vmem=16gb
+
+# This script filters variants found by only one of the two callers used. A variant has to be found in two datasets (already done for chip_seq),
+# so the set would have to be "bcftools-varscan", "chip_seq", "varscan-chip_seq", or "bcftools-chip_seq" to be included in the output.
+
+module load bcftools
+
+for f in /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/*Combined.vcf; do
+    bcftools filter -e 'INFO/set="bcftools" || INFO/set="varscan"' "$f" > "$f".filtered ;
+    rename .vcf.filtered .multiset.vcf "$f".filtered
+done
+
+module remove bcftools
+```
+
+#### 6.) Merge the combined files.  
+Now we can merge the VCFs for each sample into a single big file. We can use the samples that only used ChIP-seq data as well, though we may have to edit the header for consistency after merging.
+
+```Bash
+
+```
+
+
+#### 7.) Filter out common variants.
+This will remove the common variants (those with a MAF >0.01 in dbSNP build 146). I originally used the internal VEP filters that use the 1000 genomes project allele frequencies, but found that they don't have all the ones that dbSNP does. Since I use hg19 from UCSC as my reference genome, I had to download the common snps (146) track from UCSC as a `bed` file through the table browser to ensure correct positions. It creates a directory for each sample, so then you can go into each directory, and move the files up. Bedtools is *very* memory in-efficient when using a large file for `-b` as we are here, hence why I go ahead and use an interactive session with a ton of memory.
+
+```Bash
+qsub -I -l nodes=1:ppn=1,walltime=4:00:00,vmem=128gb 
+
+module load bedtools2
+
+for f in *VEP_Anno.vcf.gz; 
+	do bedtools intersect -v -header -a "$f" -b /scratch/jandrews/Ref/dbSNP146_common_variants.bed.gz > "${f%%.*}".VEP_Anno.dbSNP146_common_rmvd.vcf; 
+done
+```
+
+#### 8.) Annotate with VEP. 
+This is essentially impossible to get working on the cluster due to how perl is set up on it, so install and run locally. Be sure to use the GrCH37 cache `--port 3337` for hg19, not GrCH38. Motif info is pulled from JASPAR mainly, it seems.  
+
+```Bash
+for f in *.gz; 
+	do perl ~/bin/ensembl-tools-release-82/scripts/variant_effect_predictor/variant_effect_predictor.pl --fork 2 --check_existing --biotype --gencode_basic --hgvs --canonical --uniprot --variant_class --gmaf --maf_1kg --maf_esp --polyphen b --regulatory --sift b --species homo_sapiens --symbol --cache --port 3337 --vcf --stats_file "$f".stats.html --input_file "$f" -o "$f".VEP_Anno; 
+	rename .vcf.gz.VEP_Anno .VEP_Anno.vcf "$f".VEP_Anno; 
+done
+```
+
+---
+
+## Create mutational signatures  
+This will combine the noncoding and coding variants into a single file for a given sample, from which mutational signatures can be generated.
+
+#### 1.) Create frequency matrix for SNVs.
 We'll use this matrix to generate the mutational signatures for our samples. Throw all the `<sample>_Combined.vcf` files you want to include into a directory by themselves. 
 
 **Python script (make_trinuc_matrix.py):**  
@@ -344,12 +330,12 @@ We'll use this matrix to generate the mutational signatures for our samples. Thr
 python /scratch/jandrews/bin/make_trinuc_matrices.py -i /vcf_directory -o FLDLCLL_CCCB.txt -r /scratch/jandrews/Ref/hg19.fa
 ```
 
-#### 5.) Create mutational signatures.
+#### 2.) Create mutational signatures.
 I use R studio and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out. Just import the matrix file we created in the last step, convert it to a matrix, and plug it into the commands above.
 
-Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them.
+Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them. A script could easily be written to do this if you were so inclined.
 
-#### 6.) (Optional) Run it again for the samples grouped by cell type.
+#### 3.) (Optional) Run it again for the samples grouped by cell type.
 If you want to try to show clear differences between the cell types, you can merge the VCFs for each cell type using `bcftools` and just run it on those.
 
 
@@ -360,7 +346,7 @@ I made the **mistake of assuming** the calls on the arrays (1,2,3,0 aka AA,AB,BB
 
 This picks up after step 1 of the initial variant calling as noted above.
 
-#### 2.) Parse SNP array.
+#### 1.) Parse SNP array.
 This will create VCFs for each sample column in the summary SNP array file. 
 **Bash script (parse_snp_array.sh):**
 ```Bash
@@ -373,25 +359,17 @@ This will create VCFs for each sample column in the summary SNP array file.
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
 source activate anaconda
 
-python3 /scratch/jandrews/bin/parse_snp_array.py /scratch/jandrews/Data/Variant_Calling/SNP_Arrays/GenomeWideSNP_6.na35.annot.csv /scratch/jandrews/Data/Variant_Calling/SNP_Arrays/LYMPHOMASNP77_GTYPE_2014.txt
+python /scratch/jandrews/bin/parse_snp_array.py /scratch/jandrews/Data/Variant_Calling/SNP_Arrays/GenomeWideSNP_6.na35.annot.csv /scratch/jandrews/Data/Variant_Calling/SNP_Arrays/LYMPHOMASNP77_GTYPE_2014.txt
 ```
 
-#### 3.) Scrub files.
-Remove any potential garbage chromosomes from both array VCFs and those from samtools/varscan.
-`(sed '/_g/d' file.vcf | sed '/chrM/d' | sed '/chrY/d') > output.vcf`
-
-or
-
+#### 2.) Scrub files.
+Remove any chromosomes we don't want/care about from both array VCFs and those from samtools/varscan.
 ```Bash
-for file in *.vcf; do
-	sed -i '/_g/d' "$file";
-	sed -i '/chrM/d' "$file";
-	sed -i '/chrY/d' "$file";
-done
+sed -i '/_g\|chrM\|chrY/d' file.vcf > output.vcf
 ```
 
 
-#### 4A.) Filter variants.
+#### 3A.) Filter variants.
 Figure out which variants on the SNP array contain sufficient read depth (>=5) for each sample to actually be called by samtools or varscan. 
 	
 First, get read depth at each SNP array variant for each sample.
@@ -421,7 +399,7 @@ wait
 module remove bedtools2
 ```
 
-#### 4B.) Actually filter for read-depth. 
+#### 3B.) Actually filter for read-depth. 
 Change `$11` as needed (ie. if read count column is column 9, change to `$9`)
 ```Bash
 for file in *.vcf; do 
@@ -430,7 +408,7 @@ for file in *.vcf; do
 done
 ```
 
-#### 5.) Sort each filtered SNP array VCF.
+#### 4.) Sort each filtered SNP array VCF.
 ```Bash
 for f in *.vcf; do
 	base=${f%%.*} ;
@@ -438,7 +416,7 @@ for f in *.vcf; do
 done
 ```
 
-#### 6.) Remove last column (counts) from filtered SNP array VCFs.
+#### 5.) Remove last column (counts) from filtered SNP array VCFs.
 ```Bash
 for f in *.vcf; do
 	base=${f%%.*} ;
@@ -446,7 +424,7 @@ for f in *.vcf; do
 done
 ```
 
-#### 7.) Re-add header.
+#### 6.) Re-add header.
 Have to do this for each filtered SNP array, as bedtools multicov removes it.
 ```Bash
 for f in *.vcf; do
@@ -460,25 +438,19 @@ for f in *.vcf; do
 done
 ```
 
-#### 8.) Zip each VCF.  
+#### 7.) Zip & index each VCF.  
 ```Bash
 for f in *.vcf; do
 	bgzip -c "$f" > "$f".gz ;
+	tabix -p vcf "$f".gz ;
 done
 ```
 
-#### 9. Index each VCF.  
-```Bash
-for f in *.gz; do
-	tabix -p vcf "$f" ;
-done
-```
-
-#### 10.) Organize.  
+#### 8.) Organize.  
 Create two directories - one for array/BCFtools intersections, one for array/VarScan intersections. Copy files into each as appropriate.
 
 
-#### 11.) Intersect files for each sample.
+#### 9.) Intersect files for each sample.
 (checks by position only - `-c all` option does this.)
 ```Bash
 module load bcftools-1.2
@@ -492,14 +464,14 @@ module remove bcftools-1.2
 In this example, 0000.vcf will be records unique to first provided file. 0001.vcf will be records unique to second provided file. 0002.vcf and 0003.vcf are those shared between them.
 
 
-##### 12.) Count lines for each file, ignoring the headers. Do whatever with that information. Venn diagrams or something.
+##### 10.) Count lines for each file, ignoring the headers. Do whatever with that information. Venn diagrams or something.
 `grep -v '#' -c file.vcf `
 
 
 ---
 
-### To figure out insert sizes for PINDEL
-PINDEL is for figuring out more about indels, inversions, etc, but it's really not meant to run on RNA-Seq data. Regardless, you have to know the insert sizes for your samples to run it, so the below scripts will determine them for you. Our samples have an average/median insert size of 200 bp, though the histograms look more like majority are 150 bp.
+## To figure out insert sizes for PINDEL
+PINDEL is for figuring out more about indels, inversions, etc, but it's really not meant to run on RNA-Seq data. Regardless, you have to know the insert sizes for your samples to run it, so the below script will determine them for you. Our samples have an average/median insert size of 200 bp, though the histograms look more like majority are 150 bp.
 
 **Bash script(get_insert_sizes.sh):**
 ```Bash
