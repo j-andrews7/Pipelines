@@ -1,10 +1,10 @@
 # Coding Variants Pipeline
-**Up to date as of 06/28/2016.**  
+**Up to date as of 07/22/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
 ---
 
-This is an imitation of Liv's variant calling pipelines, albeit with some improvements to increase sensitivity (hypothetically). Liv tended to treat the variants from RNA-seq and ChIP-seq separately all the way through, and while I do call and filter them differently, I think it's easier to merge them together at some point. This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers for the RNA-seq data, as they have fairly high overlap.
+This is an imitation of Liv's variant calling pipelines, albeit with some improvements to increase sensitivity and stringency  (hypothetically). Liv tended to treat the variants from RNA-seq and ChIP-seq separately all the way through, and while I do call and filter them slightly differently, I think it's easier to merge them together at some point. This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers for the RNA-seq data, as they have fairly high overlap, keeping only the variants called in both.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running everything locally and the various tools needed are located on your `PATH`, you can ignore these.
 
