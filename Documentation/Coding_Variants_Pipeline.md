@@ -1,10 +1,10 @@
 # Coding Variants Pipeline
-**Up to date as of 07/25/2016.**  
+**Up to date as of 07/26/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
 ---
 
-This is an imitation of Liv's variant calling pipelines, albeit with some improvements to increase sensitivity and stringency  (hypothetically). Liv tended to treat the variants from RNA-seq and ChIP-seq separately all the way through, and while I do call and filter them slightly differently, I think it's easier to merge them together at some point. This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers for the RNA-seq data, as they have fairly high overlap, keeping only the variants called in both.
+This is an imitation of Liv's variant calling pipelines, albeit with some improvements to increase sensitivity and stringency  (hypothetically). Liv tended to treat the variants from RNA-seq and ChIP-seq separately all the way through, and while I do call and filter them slightly differently, I think it's easier to merge them together in the end. This also began as a comparison between the samtools and VarScan variant callers as well, but after the analysis, it seemed the best bet was to simply merge the results from the two callers for the RNA-seq data, as they have fairly high overlap, keeping only the variants called in both.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running everything locally and the various tools needed are located on your `PATH`, you can ignore these.
 
@@ -32,11 +32,12 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Variant Effect Predictor](http://useast.ensembl.org/info/docs/tools/vep/index.html)
 
 **SECTIONS**
-I recommend just going through these in order, though the RNA-seq & ChIP-seq data can be processed in parallel up to a certain point.
+I recommend going through the first three of these in order, though the RNA-seq & ChIP-seq data can be processed in parallel up to a certain point.
 - [Variant Calling from RNA-seq Data](#variant-calling-from-rna-seq-data)
 - [Variant Calling from ChIP-seq Data](#variant-calling-from-chip-seq-data)
 - [Merging Variants from ChIP-seq/RNA-seq Data](#merging-all-variants)
 - [Creating Mutational Signatures](#create-mutational-signatures)
+- [Intersections with Genomic Features](#intersections-with-features-of-interest)
 
 ---
 
