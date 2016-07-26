@@ -22,7 +22,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Samtools, BCFtools, and HTSlib](http://www.htslib.org/)  
   - These should be available on the CHPC cluster.
 - [Python3](https://www.python.org/downloads/)
-  - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster. (also useful for running various versions of python locally).  
+  - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster. (Also useful for running various versions of python locally).  
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
 - [VarScan2](http://dkoboldt.github.io/varscan/)
@@ -191,6 +191,86 @@ Now set these files aside and let's work on the ChIP-seq data.
 ## Variant Calling from ChIP-Seq Data
 Here's how I identify variants from the ChIP-seq data. This is fairly stringent due to the low coverage, but hopefully it reduces false positives and ensures we don't waste time trying to validate mutations that aren't around.
 
+**First**, call and scrub variant files the same as we did for the RNA-seq data above, but do **not** filter for read-depth or quality yet.
+
+#### 1.) Organize.
+Copy all VCF.gz and VCF.gz.tbi files for a given sample into an empty directory.  
+
+#### 2.) Merge the VCFs for each sample.
+This *sums* read depth (DP) and *averages* quality values (QV) for each file (histone mark) used for the sample.  
+**Bash script (merge_samp_vcfs.sh)**:
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N MERGE_VCFs
+#PBS -m e
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=32gb
+#PBS -q old
+
+module load bcftools-1.2
+for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFS_wQVs/IND_SAMP_MERGED/*/; do
+	cd "$fold"
+	base=${PWD##*/}
+	mkdir "$base"_IND_VCFS
+	mv *vcf* "$base"_IND_VCFS
+	cd "$base"_IND_VCFS/
+	bcftools merge -O v -m none -i DP:sum,QV:avg,DP4:sum *.gz > ../"$base"_variants.vcf
+done
+
+module remove bcftools-1.2
+```
+
+#### 3.) Fix header of the resulting merged VCF for each sample.
+Shortens the column headers to (sample_mark). This also fixes other header inconcistencies like case, extra underscores, etc.  
+**Python script (shorten_vcf_header.py)**:
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/VCFs_With_Quals/Ind_Samp_Merged/*/; do
+	cd "$fold"
+	python3 /scratch/jandrews/bin/shorten_vcf_header.py ${PWD##*/}_variants.vcf ${PWD##*/}_variants_fixed.vcf
+done
+```
+
+#### 4.) Zip and index the VCF for each sample, then filter for >=10 summed DP.
+Those that don't meet the read depth cutoff are removed.  
+
+**Bash script (process_samp_vcfs.sh):**  
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N PROCESS_VCFs
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=4:00:00,vmem=4gb
+
+module load bcftools-1.2
+
+for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/VCFs_With_Quals/Ind_Samp_Merged/*/; do
+	cd "$fold"
+	bgzip -c ${PWD##*/}_variants.vcf > ${PWD##*/}_variants.vcf.gz
+	tabix -p vcf ${PWD##*/}_variants.vcf.gz
+    bcftools filter -i 'DP>=10' ${PWD##*/}_variants.vcf.gz > ${PWD##*/}_variants_filtered.vcf
+done
+
+module remove bcftools-1.2
+```
+
+#### 5.) Remove single-mark variants from the VCF for each sample. 
+We're only interested in those that occur in multiple data types (histone marks) for a given sample so that we can be sure they aren't artifacts of a specific histone mark, etc. As such, this removes those that only occur in a single histone mark (or data type).  
+
+**NOTE:** _Format of samples in the header must be **'sample_mark'**._
+
+**Python script (filter_nc_vcf.py):**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+for fold in /scratch/jandrews/Data/Variant_Calling/Non_Coding/NEW_VCFs_wQVs/IND_SAMP_MERGED/*/; do
+	cd "$fold"
+	python3 /scratch/jandrews/bin/filter_nc_vcf.py ${PWD##*/}_variants_filtered.vcf ${PWD##*/}_variants_filtered_multimark.vcf
+done
+```
 
 ---
 
@@ -227,16 +307,31 @@ module remove java
 I still don't get why the tools can't figure this out on their own, but again, a necessity.  
 
 ```Bash
-for f in *.vcf; do
-	perl /scratch/jandrews/bin/vcfsorter.pl /scratch/jandrews/Ref/hg19.dict "$f" > "$f".sorted 2>STDERR
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N SORT_VCF_FOR_GATK
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=4:00:00,vmem=16gb
+#PBS -q old
+
+module load java
+
+for f in /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/MERGED/*.vcf; do
+	java -Xmx8g -jar /scratch/jandrews/bin/picard-tools-2.2.1/picard.jar SortVcf \
+	I="$f" \
+	O="$f".sorted \
+	SEQUENCE_DICTIONARY=/scratch/jandrews/Ref/hg19.dict 
 	rename .vcf.sorted .sorted.vcf "$f".sorted
 done
+
+module remove java
 ```
 
 **iii. Combine the samtools, VarScan, and noncoding VCFs for each sample.**  
-You have to change the `samp` line below to match the sample for each file.  
+You have to change the `samp` line below to match the sample for each file. Be sure to check all samples were combined properly. If a sample doesn't have all three sets, adjust as necessary to combine.
 
-**Bash script (combine_merged_vcfs.sh):**
+**Bash script (combine_samp_vcfs.sh):**
 ```Bash
 #!/bin/sh
 
@@ -248,7 +343,7 @@ You have to change the `samp` line below to match the sample for each file.
 samp=FL120
 
 module load java
-java -Xmx1g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.jar \
+java -Xmx8g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.jar \
 	-T CombineVariants \
 	-R /scratch/jandrews/Ref/hg19.fa \
 	--variant:bcftools /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/scratch/"$samp".RNAseq_BCF.sorted.vcf  \
@@ -260,7 +355,7 @@ java -Xmx1g -jar /scratch/jandrews/bin/GenomeAnalysisTK-3.5/GenomeAnalysisTK.jar
 module remove java
 ```
 
-#### 5.) Filter those only found in one data set.  
+#### 4.) Filter those only found in one data set.  
 This will remove SNPs found only by one of the callers in the RNA-seq data and not corroborated by the ChIP-seq data. Those found in only the ChIP-seq set are retained, as they had to be called in two ChIP histone markers to even be included in that set.
 
 **Bash script (filter_singleset_vcfs.sh):**  
@@ -285,24 +380,46 @@ done
 module remove bcftools
 ```
 
-#### 6.) Merge the combined files.  
-Now we can merge the VCFs for each sample into a single big file. We can use the samples that only used ChIP-seq data as well, though we may have to edit the header for consistency after merging.
+#### 5.) Sort the files for GATK.
+I usually move these files into a new directory just so things are a bit easier to handle, as we probably have a ton of files at this point. Just need the plain `.VCF` files, not compressed or anything. GATK is dumb in that it requires the VCFs sorted similarly to the reference dict used for it (which we created previously). So we have to sort the VCFs again to ensure they are in the correct order.
+
+> This can be annoying as hell for the ChIP_seq only files. For whatever reason, the order of the contigs in the header are sometimes not changed, so you may have to reorder them manually for the first file or two, then trying to sort again seems to work.
 
 ```Bash
-
+module load java
+for f *.vcf; do
+	perl /scratch/jandrews/bin/vcfsorter.pl /scratch/jandrews/Ref/hg19.dict "$f">"$f".sorted 2>STDERR
+done
 ```
+
+**Note:** If you have trouble with this step, you can try using Picard SortVcf, which can sort to a reference dict, though I had trouble getting it to play nice.
+
+#### 6.) Merge the combined files.  
+Now we can merge the VCFs for each sample into a single big file. I usually move these files into a new directory just so things are a bit easier to handle, as we probably have a ton of files at this point. We can use the samples that only used ChIP-seq data as well, though we may have to edit the header for consistency after merging. Have to stick full paths to each `VCF` here, which is annoying, but you can use a loop and `echo` along with copy and pasting to make it painless.
+
+*To get arguments for `CombineVariants` GATK tool:*
+
+```Bash
+for f in *.vcf; 
+	do base=${f%%.*}; 
+	echo --variant:"$base" /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/MERGED/"$f" ; 
+done
+```
+
+**Bash script (combine_all_vcfs.sh)** 
+Not even bothering to paste this one, since it's just a million file paths and the CombineVariants GATK tool again. You'll probably want ot manually clean up the header after this - it's likely to be a bit messy.
 
 
 #### 7.) Filter out common variants.
-This will remove the common variants (those with a MAF >0.01 in dbSNP build 146). I originally used the internal VEP filters that use the 1000 genomes project allele frequencies, but found that they don't have all the ones that dbSNP does. Since I use hg19 from UCSC as my reference genome, I had to download the common snps (146) track from UCSC as a `bed` file through the table browser to ensure correct positions. It creates a directory for each sample, so then you can go into each directory, and move the files up. Bedtools is *very* memory in-efficient when using a large file for `-b` as we are here, hence why I go ahead and use an interactive session with a ton of memory.
+This will remove the common variants (those with a MAF >0.01 in dbSNP build 146). I originally used the internal VEP filters that use the 1000 genomes project allele frequencies, but found that they don't have all the ones that dbSNP does. Since I use hg19 from UCSC as my reference genome, I had to download the common snps (146) track from UCSC as a `bed` file through the table browser to ensure correct positions. Bedtools is *very* memory in-efficient when using a large file for `-b` as we are here, hence why I go ahead and use an interactive session with a ton of memory.
 
 ```Bash
 qsub -I -l nodes=1:ppn=1,walltime=4:00:00,vmem=128gb 
 
 module load bedtools2
 
-for f in *VEP_Anno.vcf.gz; 
-	do bedtools intersect -v -header -a "$f" -b /scratch/jandrews/Ref/dbSNP146_common_variants.bed.gz > "${f%%.*}".VEP_Anno.dbSNP146_common_rmvd.vcf; 
+for f in *.vcf.gz; do 
+	bedtools intersect -v -header -a "$f" -b /scratch/jandrews/Ref/dbSNP146_common_variants.bed.gz > "${f%%.*}".dbSNP146_common_rmvd.vcf; 
 done
 ```
 
@@ -316,10 +433,12 @@ for f in *.gz;
 done
 ```
 
+After this point, you're on your own. You have individual sample file and one enormous master table.
+
 ---
 
 ## Create mutational signatures  
-This will combine the noncoding and coding variants into a single file for a given sample, from which mutational signatures can be generated.
+This section tries to identify mutational signatures from our variants, allowing us to make some inferences as to their generating processes. See the [Alexandrov paper](http://www.nature.com/nature/journal/v500/n7463/full/nature12477.html) for some more details about this idea.
 
 #### 1.) Create frequency matrix for SNVs.
 We'll use this matrix to generate the mutational signatures for our samples. Throw all the `<sample>_Combined.vcf` files you want to include into a directory by themselves. 
@@ -331,9 +450,9 @@ python /scratch/jandrews/bin/make_trinuc_matrices.py -i /vcf_directory -o FLDLCL
 ```
 
 #### 2.) Create mutational signatures.
-I use R studio and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out. Just import the matrix file we created in the last step, convert it to a matrix, and plug it into the commands above.
+I use R studio and the [SomaticSignatures](http://www.bioconductor.org/packages/devel/bioc/vignettes/SomaticSignatures/inst/doc/SomaticSignatures-vignette.html) package for this. It is relatively straight-forward, so just read the link and you'll be able to figure it out. Just import the matrix file we created in the last step, convert it to a matrix, and plug it into the commands above. A script could easily be written to do this if you were so inclined.
 
-Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them. A script could easily be written to do this if you were so inclined.
+Compare the output figures to the [COSMIC mutational signatures](http://cancer.sanger.ac.uk/cosmic/signatures) or do whatever you want with them. 
 
 #### 3.) (Optional) Run it again for the samples grouped by cell type.
 If you want to try to show clear differences between the cell types, you can merge the VCFs for each cell type using `bcftools` and just run it on those.
@@ -499,4 +618,104 @@ done
 
 module remove R
 module remove java
+```
+
+## Intersections with features of interest
+
+Intersect the resulting multimark, filtered variants file for each sample with SEs, regular enhancers, and TSSs to determine the percentage of SNVs for file found in each. Make sure to always sort and remove dups first, as it'll skew your results otherwise. Some of the MMPIDs and such may have duplicates due to the way they were acquired, hence why this is necessary.
+
+This same principle can be applied to intersections with whatever you want (TF motifs, regulatory elements, etc). Here I show intersections with **super enhancers, regular enhancers (FAIRE-positive, non-TSS MMPIDs that aren't located within SEs), TSSs, and TSSs located within SEs.**
+
+#### 1.) Intersect TSSs with SEs to get those that lie within/outside the SEs. 
+The TSS file here can be found on the Payton Shared Drive in the master files folder (and probably about ten other places as well).
+
+```Bash
+sort -k1,1 -k2,2n 2kbTSStranscripts_gencode19_protein_coding_positions.bed \
+| uniq - > 2kbTSStranscripts_gencode19_protein_coding_positions_uniq.bed
+
+module load bedtools2
+
+bedtools intersect -wa -a 2kbTSStranscripts_gencode19_protein_coding_positions.bed -b ../SES/ALL_SES_POSITIONS_SORTED.bed > 2kbTSStranscripts_gencode19_protein_coding_inSEs.bed
+bedtools intersect -v -a 2kbTSStranscripts_gencode19_protein_coding_positions.bed -b ../SES/ALL_SES_POSITIONS_SORTED.bed > 2kbTSStranscripts_gencode19_protein_coding_outsideSEs.bed
+```  
+
+  
+#### 2.) Intersect FAIRE-positive MMPID positions with SEs to remove those that overlap  
+Sort and remove dups (shouldn't be any in MMPID positions, though intersects may result in some - an MMPID in two SEs).
+```
+sort -k1,1 -k2,2n MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS.bed | uniq - > MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed
+
+bedtools intersect -wa -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b ../SES/ALL_SES_POSITIONS_SORTED.bed \
+| uniq - > MMPID_NonTSS_FAIRE_POSITIVE_inSEs.bed
+
+bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b ../SES/ALL_SES_POSITIONS_SORTED.bed \
+| uniq - > MMPID_NonTSS_FAIRE_POSITIVE_outsideSEs.bed
+```
+
+#### 3.) Intersect the variants with features of interest
+This intersects the variants with the SEs, MMPIDs, and TSS positions created in previous steps. This will create a summary file for each sample with counts for each intersection. This filters out variants found near the Ig loci as well, though it does so in a lazy way and just removes all the variants in the region rather than only those that overlap with the Ig genes. Can edit  `/scrach/jandrews/Ref/Ig_Loci.bed` to change these positions. 
+
+The script below is set up to intersect only the ChIP-seq variants, but you can edit it to use your combined variants file for each sample instead. This is also using bed files, but we can use `VCFs` since `VEP` doesn't break the format like `FunSeq` does, so `bedtools` should be able to handle them fine.
+
+**Bash script (isec_ind_samp_variants_wMMPIDs_SEs_TSS.sh):**
+```Bash
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N ISEC_EVERYTHING
+#PBS -m e
+#PBS -l nodes=1:ppn=1,walltime=4:00:00,vmem=8gb
+
+module load bedtools2
+
+rm /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+touch /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+
+for f in /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/*positions.bed; do
+
+	base=${f##*/}
+
+	sort -k1,1 -k2,2n "$f" \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted.bed
+	echo -en ${base%.*}' funseq annotated variants: ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	var_count=$(wc -l < $f)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+
+	bedtools intersect -v -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted.bed -b /scratch/jandrews/Ref/Ig_Loci.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed
+
+	echo -en ${base%.*}' funseq annotated variants (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/MMPIDS/MMPID_NonTSS_FAIRE_POSITIVE_outsideSEs.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inMMPIDS_outsideSEs_noIgLoci.bed
+
+	echo -en ${base%.*}' funseq annotated variants in regular enhancers (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inMMPIDS_outsideSEs_noIgLoci.bed)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/SES/ALL_SES_POSITIONS_SORTED.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inSEs_noIgLoci.bed
+
+	echo -en ${base%.*}' funseq annotated variants in super enhancers (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inSEs_noIgLoci.bed)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/TSS/2kbTSStranscripts_gencode19_protein_coding_positions_uniq.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_noIgLoci.bed
+
+	echo -en ${base%.*}' funseq annotated variants in 2kb TSSs (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_noIgLoci.bed)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/TSS/2kbTSStranscripts_gencode19_protein_coding_inSEs.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_inSEs_noIgLoci.bed
+
+	echo -en ${base%.*}' funseq annotated variants in 2kb TSSs in SEs (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_inSEs_noIgLoci.bed)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+
+done
+module remove bedtools2
 ```
