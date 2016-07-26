@@ -316,7 +316,7 @@ awk -F'\t' -vOFS='\t' '{ $4 = $4 "_MEMORY" }1' < TS081414_MEMORY_K27AC_ROSE_SEs_
 ---
 
 ## Determine Discrete SEs  
-I don't really like considering these *unique* unless they're **very** obvious. Usually, a sample or two is just making the cutoff for a given region while the others aren't, as shown in the below image.
+I don't really like considering SEs *unique* to a given sample or cell type unless they're **very** obvious. Usually, a sample or two is just making the cutoff for a given region while the others aren't, as shown in the below image.
 
 ![SE Example](/Documentation/img/SE_example.png)
 
