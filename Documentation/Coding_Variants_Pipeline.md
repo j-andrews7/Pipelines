@@ -17,6 +17,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 **IMPORTANT**: Be sure to sort and index BAMs before beginning this. There are obviously named bash scripts in the above code folders to do so. All Python scripts here use **Python 3**, so be sure you have the appropriate version installed/set.
 
+---
+
 **Software Requirements:**
 - [BEDOPS](http://bedops.readthedocs.org/en/latest/index.html)
 - [Samtools, BCFtools, and HTSlib](http://www.htslib.org/)  
