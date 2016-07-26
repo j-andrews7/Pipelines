@@ -35,7 +35,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 ---
 
-**SECTIONS**  
+**Sections:**  
 I recommend going through the first three of these in order, though the RNA-seq & ChIP-seq data can be processed in parallel up to a certain point.
 - [Variant Calling from RNA-seq Data](#variant-calling-from-rna-seq-data)
 - [Variant Calling from ChIP-seq Data](#variant-calling-from-chip-seq-data)
