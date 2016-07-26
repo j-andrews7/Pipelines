@@ -552,11 +552,11 @@ python /scratch/jandrews/bin/calc_chip_signal.py <output.bed> <gff files>
 ```
 
 #### 4.) Quantile normalize (semi-optional).
-This helps compare between samples. Definitely recommend doing this before comparing signal that lie inside/outside CNVs, for example. This script **relies on a package (rpy2) that can't be installed on the cluster**. As such, you need to run it locally. It will ask you to define where the data columns begin.
+This helps compare between samples. Definitely recommend doing this before comparing signal that lie inside/outside CNVs, for example. This script **relies on a package (rpy2) that can't be installed on the cluster**. As such, you need to run it locally. It requires the number of the column in which the data starts as a second argument (5th column in this case).
 
 **Python script (quantile_normalize.py):**
 ```Bash
-python /scratch/jandrews/bin/quantile_normalize.py RECURRENT_FLDL_CCCB_ONLY_SE_SIGNAL.py
+python /scratch/jandrews/bin/quantile_normalize.py RECURRENT_FLDL_CCCB_ONLY_SE_SIGNAL.py 5
 ```
 
 #### 5.) Add back in samples called in column.
