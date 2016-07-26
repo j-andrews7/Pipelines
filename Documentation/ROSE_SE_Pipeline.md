@@ -26,7 +26,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   
 #### Sections  
 - [Calling the SEs](#se-calling)
-- [Determine Unique SEs](#determine-unique-ses)
+- [Determine Discrete SEs](#determine-unique-ses)
 - [Get SE Signal](#get-se-signal-for-each-sample)
 - [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
 - [Create genome wide plots to display differences between samples](#genome-wide-plots)
@@ -315,7 +315,11 @@ awk -F'\t' -vOFS='\t' '{ $4 = $4 "_MEMORY" }1' < TS081414_MEMORY_K27AC_ROSE_SEs_
 
 ---
 
-## Determine Unique SEs  
+## Determine Discrete SEs  
+I don't really like considering these *unique* unless they're **very** obvious. Usually, a sample or two is just making the cutoff for a given region while the others aren't, as shown in the below image.
+
+![SE Example](/Documentation/img/SE_example.png)
+
 The first method here takes into account overlap between SEs in different cell types, only calling those that overlap by **less than 25%** as unique. The second method just takes all SEs for a given cell type, concatenates and merges them, and then does a multi-intersect with clustering. If the SEs overlap at all between samples, they will be merged.
 
 ### The first method (mine, recommended)  
