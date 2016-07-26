@@ -26,7 +26,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   
 #### Sections  
 - [Calling the SEs](#se-calling)
-- [Determine Discrete SEs](#determine-unique-ses)
+- [Determine Discrete SEs](#determine-discrete-ses)
 - [Get SE Signal](#get-se-signal-for-each-sample)
 - [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
 - [Create genome wide plots to display differences between samples](#genome-wide-plots)
