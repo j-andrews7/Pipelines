@@ -33,6 +33,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Perl](https://www.perl.org/)
 - [Variant Effect Predictor](http://useast.ensembl.org/info/docs/tools/vep/index.html)
 
+---
+
 **SECTIONS**  
 I recommend going through the first three of these in order, though the RNA-seq & ChIP-seq data can be processed in parallel up to a certain point.
 - [Variant Calling from RNA-seq Data](#variant-calling-from-rna-seq-data)
