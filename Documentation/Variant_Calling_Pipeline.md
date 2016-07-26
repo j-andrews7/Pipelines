@@ -1,4 +1,4 @@
-# Coding Variants Pipeline
+# Variant Calling Pipeline
 **Up to date as of 07/26/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
