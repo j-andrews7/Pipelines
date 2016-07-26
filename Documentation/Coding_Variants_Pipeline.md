@@ -45,7 +45,7 @@ I recommend going through the first three of these in order, though the RNA-seq 
 
 ---
 
-## Variant Calling From RNA-seq
+## Variant Calling From RNA-seq Data
 This section will call variants from RNA-seq data using both VarScan and bcftools (samtools). 
 
 #### 0.) Mark duplicates if you haven't already.
