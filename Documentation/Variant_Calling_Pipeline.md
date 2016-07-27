@@ -657,6 +657,11 @@ bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b ../SE
 | uniq - > MMPID_NonTSS_FAIRE_POSITIVE_outsideSEs.bed
 ```
 
+#### Optional.) To look only at non-coding variants, annotate with FunSeq2.
+Alright, I'll be honest, I actually **can't stand** [Funseq](http://funseq2.gersteinlab.org/). The UI sucks, you can't turn off the MAF threshold for filtering polymorphisms from 1KG (even if you set it to 1, you'll still lose some for whatever reason), the VCF output from it isn't kosher, and uploading a VCF with sample columns is a moot point, as it blows them all away in the output. Not to mention no drag'n'drop or batch uploading, so it takes ages to simply select all the samples to upload.
+
+Still, its annotations are useful for removing variants predicted to affect coding regions. Upload your `combined` files for each sample and let it do its thing. Half the reason I used this is just because Liv did, and I was trying to replicate her findings.
+
 #### 3.) Intersect the variants with features of interest
 This intersects the variants with the SEs, MMPIDs, and TSS positions created in previous steps. This will create a summary file for each sample with counts for each intersection. This filters out variants found near the Ig loci as well, though it does so in a lazy way and just removes all the variants in the region rather than only those that overlap with the Ig genes. Can edit  `/scrach/jandrews/Ref/Ig_Loci.bed` to change these positions. 
 
@@ -673,54 +678,59 @@ The script below is set up to intersect only the ChIP-seq variants, but you can 
 
 module load bedtools2
 
-rm /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
-touch /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+rm /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
+touch /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
 
-for f in /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/*positions.bed; do
+for f in /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/IND_SAMPS/*common_rmvd.vcf; do
 
 	base=${f##*/}
 
-	sort -k1,1 -k2,2n "$f" \
-	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted.bed
-	echo -en ${base%.*}' funseq annotated variants: ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
-	var_count=$(wc -l < $f)
-	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	vcf-sort < "$f" > /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted.vcf
 
-	bedtools intersect -v -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted.bed -b /scratch/jandrews/Ref/Ig_Loci.bed \
-	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed
+	echo -en ${base%.*}' variants: ' >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
+	var_count=$(sed '/^\s*#/d' $f | wc -l)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
 
-	echo -en ${base%.*}' funseq annotated variants (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
-	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed)
-	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	bedtools intersect -v -a /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted.vcf \
+	-b /scratch/jandrews/Ref/Ig_Loci.bed > /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted_noIgLoci.vcf
 
-	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/MMPIDS/MMPID_NonTSS_FAIRE_POSITIVE_outsideSEs.bed \
-	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inMMPIDS_outsideSEs_noIgLoci.bed
+	echo -en ${base%.*}' variants (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
+	var_count=$(sed '/^\s*#/d' /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted_noIgLoci.bed | wc -l)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
 
-	echo -en ${base%.*}' funseq annotated variants in regular enhancers (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
-	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inMMPIDS_outsideSEs_noIgLoci.bed)
-	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted_noIgLoci.vcf \
+	-b /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/MMPIDS/MMPID_NonTSS_FAIRE_POSITIVE_outsideSEs.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_inMMPIDS_outsideSEs_noIgLoci.vcf
 
-	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/SES/ALL_SES_POSITIONS_SORTED.bed \
-	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inSEs_noIgLoci.bed
+	echo -en ${base%.*}' variants in regular enhancers (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
+	var_count=$(sed '/^\s*#/d' /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_inMMPIDS_outsideSEs_noIgLoci.bed | wc -l)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
 
-	echo -en ${base%.*}' funseq annotated variants in super enhancers (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
-	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_inSEs_noIgLoci.bed)
-	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted_noIgLoci.bed \
+	-b /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/SES/All_SEs.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_inSEs_noIgLoci.bed
 
-	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/TSS/2kbTSStranscripts_gencode19_protein_coding_positions_uniq.bed \
-	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_noIgLoci.bed
+	echo -en ${base%.*}' variants in super enhancers (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
+	var_count=$(sed '/^\s*#/d' /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_inSEs_noIgLoci.bed | wc -l)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
 
-	echo -en ${base%.*}' funseq annotated variants in 2kb TSSs (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
-	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_noIgLoci.bed)
-	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted_noIgLoci.bed \
+	-b /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/TSS/2kbTSStranscripts_gencode19_protein_coding_positions_uniq.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_in2kbTSS_noIgLoci.bed
 
-	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_sorted_funseq_noIgLoci.bed -b /scratch/jandrews/Data/Variant_Calling/Non_Coding/SE_TSS_MMPID_INTERSECTS/TSS/2kbTSStranscripts_gencode19_protein_coding_inSEs.bed \
-	| uniq - > /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_inSEs_noIgLoci.bed
+	echo -en ${base%.*}' variants in 2kb TSSs (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
+	var_count=$(sed '/^\s*#/d' /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_in2kbTSS_noIgLoci.bed | wc -l)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
 
-	echo -en ${base%.*}' funseq annotated variants in 2kb TSSs in SEs (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
-	var_count=$(wc -l < /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/${base%.*}_funseq_in2kbTSS_inSEs_noIgLoci.bed)
-	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Non_Coding/Annotated_Results/FLDL_Only_Ind_Filtering/all_samples_isecs_summary.txt
+	bedtools intersect -wa -a /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_sorted_noIgLoci.bed \
+	-b /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/TSS/2kbTSStranscripts_gencode19_protein_coding_inSEs.bed \
+	| uniq - > /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_in2kbTSS_inSEs_noIgLoci.bed
+
+	echo -en ${base%.*}' variants in 2kb TSSs in SEs (Ig filtered): ' >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
+	var_count=$(sed '/^\s*#/d' /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/IND_SAMPS/${base%.*}_in2kbTSS_inSEs_noIgLoci.bed | wc -l)
+	echo -e $var_count >> /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED_VARS_FINAL/INTERSECTS/all_samples_isecs_summary.txt
 
 done
 module remove bedtools2
+```
 ```
