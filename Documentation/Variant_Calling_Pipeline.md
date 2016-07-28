@@ -1,5 +1,5 @@
 # Variant Calling Pipeline
-**Up to date as of 07/26/2016.**  
+**Last updated 07/28/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
 ---
@@ -8,10 +8,7 @@ This is an imitation of Liv's variant calling pipelines, albeit with some improv
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running everything locally and the various tools needed are located on your `PATH`, you can ignore these.
 
-> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab.
-
-All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
-They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. 
 
 An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
 
@@ -660,7 +657,19 @@ bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b ../SE
 #### Optional.) To look only at non-coding variants, annotate with FunSeq2.
 Alright, I'll be honest, I actually **can't stand** [Funseq](http://funseq2.gersteinlab.org/). The UI sucks, you can't turn off the MAF threshold for filtering polymorphisms from 1KG (even if you set it to 1, you'll still lose some for whatever reason), the VCF output from it isn't kosher, and uploading a VCF with sample columns is a moot point, as it blows them all away in the output. Not to mention no drag'n'drop or batch uploading, so it takes ages to simply select all the samples to upload.
 
-Still, its annotations are useful for removing variants predicted to affect coding regions. Upload your `combined` files for each sample and let it do its thing. Half the reason I used this is just because Liv did, and I was trying to replicate her findings.
+Still, its annotations are useful for removing variants predicted to affect *coding regions*. Half the reason I used this is just because Liv did, and I was trying to replicate her findings.
+
+#### i.) Run FunSeq.
+Upload your `combined` files for each sample, set the MAF to 1 since we should have already removed common variants, and let it do its thing. 
+
+#### ii.) Download the output.BED file and parse it.
+This script will parse the funseq file into individual files for each sample. It will also print only those specific to a sample if you provide the `-uniq` flag. A position only file will also be printed for each sample. Recommend running it twice, once with the `-uniq` option and once without. It bases the output names on the sample name within the input file, so no need to specify anything.
+
+**Python script (parse_funseq.py):**
+
+```Bash
+python parse_funseq.py -i <input.bed> -uniq
+```
 
 #### 3.) Intersect the variants with features of interest
 This intersects the variants with the SEs, MMPIDs, and TSS positions created in previous steps. This will create a summary file for each sample with counts for each intersection. This filters out variants found near the Ig loci as well, though it does so in a lazy way and just removes all the variants in the region rather than only those that overlap with the Ig genes. Can edit  `/scrach/jandrews/Ref/Ig_Loci.bed` to change these positions. 
