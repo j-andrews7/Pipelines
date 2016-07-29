@@ -1,6 +1,8 @@
 # Super Enhancer Calling
+**Last updated 07/29/2016**
+**Author: jared.andrews07@gmail.com**
 
-**Last updated 07/28/2016**
+---
 
 A super enhancer pipeline using [ROSE](https://bitbucket.org/young_computation/rose) - Young et al, 2013. Highly advise doing this on a computing cluster if possible. Some steps were broken up into multiple for the sake of clarity. Several can easily be combined/piped together.
 
@@ -20,14 +22,16 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - Probably a small number of packages as well. `pip install` is your friend.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
-  
+
+---
+
 #### Sections  
 - [Calling the SEs](#se-calling)
 - [Determine Discrete SEs](#determine-discrete-ses)
 - [Get SE Signal](#get-se-signal-for-each-sample)
 - [Intersect with broad K4ME3 Peaks](#intersect-with-broad-k4me3-peaks)
 - [Create genome wide plots to display differences between samples](#genome-wide-plots)
-  - This is particularly good for comparing to the CNV plots.
+  - This is particularly good for comparing to the CNV plots and finding correlation between samples.
 
 ---
 
@@ -668,7 +672,7 @@ Can now make charts or whatever you want.
 ---
 
 ## Genome wide plots  
-Similar to the CN plots, this lets you view all the SEs for all samples across the genome. It's useful for comparisons to copy number info.
+Similar to the CN plots, this lets you view all the SEs for all samples across the genome. It's useful for comparisons to copy number info. It also goes through creating correlation plots between the samples.
 
 #### 1.) Calculate SD differences for samples.  
 From the QN'd signal for all SEs, find the standard deviation, average, median, etc for each SE and the difference in standard deviations for each sample from the mean. Does the same for the median absolute deviation. Also creates rugplots for each SE using the standard deviation differences.
@@ -725,7 +729,7 @@ Labels are good.
 
 ```Bash
 for f in *.bed; do 
-	{ printf 'CHROM        START   END     CB011514_SDs_AROUND_MEAN        CB012214_SDs_AROUND_MEAN        CB021314_SDs_AROUND_MEAN        CC011514_SDs_AROUND_MEAN        CC012214_SDs_AROUND_MEAN        CC021314_SDs_AROUND_MEAN        DL135_SDs_AROUND_MEAN   DL188_SDs_AROUND_MEAN   DL237_SDs_AROUND_MEAN   DL252_SDs_AROUND_MEAN   DL273_SDs_AROUND_MEAN   DL3A538_SDs_AROUND_MEAN DL551_SDs_AROUND_MEAN   FL153_SDs_AROUND_MEAN   FL174_SDs_AROUND_MEAN   FL202_SDs_AROUND_MEAN   FL238_SDs_AROUND_MEAN   FL255_SDs_AROUND_MEAN   FL301_SDs_AROUND_MEAN   FL303_SDs_AROUND_MEAN   FL313_SDs_AROUND_MEAN   FL3A145_SDs_AROUND_MEAN\n'; cat "$f"; } > "$f".temp; mv "$f".temp "$f"; 
+	{ printf 'CHROM\tSTART\tEND\tCB011514_SDs_AROUND_MEAN\tCB012214_SDs_AROUND_MEAN\tCB021314_SDs_AROUND_MEAN\tCC011514_SDs_AROUND_MEAN\tCC012214_SDs_AROUND_MEAN\tCC021314_SDs_AROUND_MEAN\tDL135_SDs_AROUND_MEAN\tDL188_SDs_AROUND_MEAN\tDL237_SDs_AROUND_MEAN\tDL252_SDs_AROUND_MEAN\tDL273_SDs_AROUND_MEAN\tDL3A538_SDs_AROUND_MEAN\tDL551_SDs_AROUND_MEAN\tFL153_SDs_AROUND_MEAN\tFL174_SDs_AROUND_MEAN\tFL202_SDs_AROUND_MEAN\tFL238_SDs_AROUND_MEAN\tFL255_SDs_AROUND_MEAN\tFL301_SDs_AROUND_MEAN\tFL303_SDs_AROUND_MEAN\tFL313_SDs_AROUND_MEAN\tFL3A145_SDs_AROUND_MEAN\n'; cat "$f"; } > "$f".temp; mv "$f".temp "$f"; 
 done
 ```
 
@@ -737,4 +741,18 @@ for f in *.bed; do
 	python plot_se_bins.py "$f"
 done
 ```
+
+#### 8.) Make correlation plots.
+I found correlation plots of the SD differences between samples to also be a good way to show the heterogeneity of tumors, how they tend to cluster together, and how different the normal samples are compared to the tumors. It uses just the columns containing the SDs from mean for each sample, don't need the position columns. I also tried this with just the QN'd signal for each SE for each sample, but it didn't look so great.
+
+```R
+install.packages("corrgram")
+
+QN_FLDL_CCCB_ONLY_SES_SIGNAL_SD_DIFF_ONLY <- read.delim("C:/Users/jandrews/Labwork/Data/DL_FL_Paper_2015/SE_Figs/QN_FLDL_CCCB_ONLY_SES_SIGNAL_SD_DIFF_ONLY.txt")
+
+data_dm <- data.matrix(QN_FLDL_CCCB_ONLY_SES_SIGNAL_SD_DIFF_ONLY)
+corr_matr <- cor(data_dm, method="pearson")
+heatmap.2(corr_matr, density.info = "none", col=colorRampPalette(c("blue","white","red4")), margins = c(6,6), keysize = 1.2, cexRow = 0.8, cexCol = 0.8, trace="none", main = "Correlation of SDs from Mean Across Samples", key.xlab = "Pearson Correlation")
+```
+
 
