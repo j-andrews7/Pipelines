@@ -1,5 +1,5 @@
 # Variant Calling Pipeline
-**Last updated 07/28/2016.**  
+**Last updated 07/29/2016.**  
 **Author: jared.andrews07@gmail.com**  
 
 ---
