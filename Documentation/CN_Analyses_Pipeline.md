@@ -1,6 +1,6 @@
 # CN Analysis 
 
-**Last edited 06/09/2016.**  
+**Last edited 08/01/2016.**  
 jared.andrews07@gmail.com
 
 The aim of this pipeline is to get all copy number changes for all samples for which we have SNP arrays, determine minimal common regions between them, make some pretty figures, and integrate them with our other data sets (SEs, lncRNAs, REs, etc). As with most things, this started off relatively simple and grew to be more complicated as results were analyzed and additional approaches tried.
