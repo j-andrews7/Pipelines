@@ -7,10 +7,8 @@ The aim of this pipeline is to get all copy number changes for all samples for w
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these.
 
-> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab, i.e., **you should be able to access everything in my scratch folder and run the scripts from there if you so choose.**
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. 
 
-All necessary scripts should be here: **N:\Bioinformatics\Jareds_Code**  
-They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
 
 An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
 
@@ -171,7 +169,7 @@ bedops --chop 5000 hg19.bed > hg19.5kb_bins.bed
 ```
 
 #### 2.) Intersect CNVs with the Binned Genome.
-This will create a new column for each sample with a count for the number of elements that overlap each bin. After iterating through all the files, we'll end up with a matrix that we can use to plot after a bit of tweaking. This can be done with CNVs for **only one cell type** or **combining them all together**. I show doing it for both DL and FL samples here. 
+This will create a new column for each sample with the copy number for the sample in that bin. After iterating through all the files, we'll end up with a matrix that we can use to plot after a bit of tweaking. This can be done with CNVs for **only one cell type** or **combining them all together**. I show doing it for both DL and FL samples here. 
 
 ```Bash
 module load bedtools2
@@ -180,22 +178,29 @@ cp hg19.5kb_bins.bed FLDL_AMPS_MATRIX_5KB.bed
 cp hg19.5kb_bins.bed FLDL_DELS_MATRIX_5KB.bed
 
 # First the amps.
-for f in *AMPS_ANNOT*; do
-	echo "$f"
-	bedtools intersect -loj -c -a FLDL_AMPS_MATRIX_5KB.bed -b "$f" > FLDL_AMPS_MATRIX_5KB.bed.temp
-	mv FLDL_AMPS_MATRIX_5KB.bed.temp FLDL_AMPS_MATRIX_5KB.bed
-done
+for f in *AMPS_ANNOT*; do 
+	echo "$f"; 
+	cut -f1-3,6 "$f" | bedtools intersect -loj -a FLDL_AMPS_MATRIX_5KB.bed -b stdin > FLDL_AMPS_MATRIX_5KB.bed.temp; 
+ 	mv FLDL_AMPS_MATRIX_5KB.bed.temp FLDL_AMPS_MATRIX_5KB.bed; 
+ done
+
+# This parses for the columns we want. Change the 119 to a higher number if you have more samples than that. 
+# ChrX, Y, and 'random' chromosomes are also removed. The '.'s that denote a NULL intersection are replaced with 2 (the normal number of copies).
+awk '{for(i=1;i<=2;i+=1) printf "%s\t",$i ;for(i=3;i<=119;i+=4) {printf "%s\t",$i} ;print ""}' FLDL_AMPS_MATRIX_5KB.bed | sed -e 's/\./2/g' - | sed -e '/chrY\|chrX\|_g/d' - > FLDL_AMPS_MATRIX_5KB.final.bed
+
 
 # Then the dels.
 for f in *DELS_ANNOT*; do
-	echo "$f"
-	bedtools intersect -loj -c -a FLDL_DELS_MATRIX_5KB.bed -b "$f" > FLDL_DELS_MATRIX_5KB.bed.temp
-	mv FLDL_DELS_MATRIX_5KB.bed.temp FLDL_DELS_MATRIX_5KB.bed
+	echo "$f";
+	cut -f1-3,6 "$f" | bedtools intersect -loj -a FLDL_AMPS_MATRIX_5KB.bed -b stdin > FLDL_DELS_MATRIX_5KB.bed.temp
+ 	mv FLDL_DELS_MATRIX_5KB.bed.temp FLDL_DELS_MATRIX_5KB.bed;
 done
+
+awk '{for(i=1;i<=2;i+=1) printf "%s\t",$i ;for(i=3;i<=119;i+=4) {printf "%s\t",$i} ;print ""}' FLDL_DELS_MATRIX_5KB.bed | sed -e 's/\./2/g' - | sed -e '/chrY\|chrX\|_g/d' - > FLDL_DELS_MATRIX_5KB.final.bed
 ```
 
 #### 3.) Scrub and condense amp/del matrices.
-We need to do a few things before we can plot the data. First, the bins with multiple amps/dels overlapping need these values >1 to be reduced to 1. Second, the dels need their values converted to negatives. Lastly, the the amp/dels need to be merged for each bin and the file needs to be sorted numerically rather than lexicographically. This script does all of that. **Pay attention to file order, it *must* go amps then dels.** This uses a fair amount of memory, so I ran it in an interactive job on the cluster.
+We need to do a few things before we can plot the data. First, the bins with both amps and dels for a given sample need to be specially noted and will be given a value of -1. Lastly, the the amp/dels need to be merged for each bin and the file needs to be sorted numerically rather than lexicographically. This script does all of that. **Pay attention to file order, it *must* go amps then dels.** This uses a fair amount of memory, so I ran it in an interactive job on the cluster.
 
 **Python script (condense_cn_matrices.py):**
 ```Bash
