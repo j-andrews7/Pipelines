@@ -192,7 +192,7 @@ awk '{for(i=1;i<=2;i+=1) printf "%s\t",$i ;for(i=3;i<=119;i+=4) {printf "%s\t",$
 # Then the dels.
 for f in *DELS_ANNOT*; do
 	echo "$f";
-	cut -f1-3,6 "$f" | bedtools intersect -loj -a FLDL_AMPS_MATRIX_5KB.bed -b stdin > FLDL_DELS_MATRIX_5KB.bed.temp
+	cut -f1-3,6 "$f" | bedtools intersect -loj -a FLDL_DELS_MATRIX_5KB.bed -b stdin > FLDL_DELS_MATRIX_5KB.bed.temp
  	mv FLDL_DELS_MATRIX_5KB.bed.temp FLDL_DELS_MATRIX_5KB.bed;
 done
 
@@ -240,8 +240,9 @@ These will be used as columns for plotting. It's also nice to know what's in a f
 ```Bash
 for f in *MATRIX*; do
 	{ printf 'CHR\tSTART\tEND\tDL135\tDL166\tDL188\tDL191\tDL237\tDL252\tDL273\tDL3A193\tFL120\tFL125\tFL139\tFL153\tFL174\tFL202\tFL238\tFL255\tFL301\tFL313\tFL3A145\n'; cat "$f"; } > "$f".temp
+	mv "$f".temp "$f"
 done
-mv "$f".temp "$f"
+
 
 for f in ./5KB_SPLIT_RESULTS/*.bed; do
 	{ printf 'CHR\tSTART\tEND\tDL135\tDL166\tDL188\tDL191\tDL237\tDL252\tDL273\tDL3A193\tFL120\tFL125\tFL139\tFL153\tFL174\tFL202\tFL238\tFL255\tFL301\tFL313\tFL3A145\n'; cat "$f"; } > "$f".temp
@@ -253,7 +254,11 @@ The next few steps are going to be a bit wonky in that they don't __*necessarily
 
 
 #### 7.) Plot the data.  
-The first three columns will be used as the row labels. The rest of the data will be used as the column labels. This script can be edited to change the aesthetics and size. Note that if you try to make enormous figs, you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly. Adding lines between the columns/chromosomes, etc, in photoshop or powerpoint is helpful, and you'll probably want to relabel the columns.
+This script can be edited to change the aesthetics and size. Note that if you try to make enormous rasterized figs (PNG format), you may run into a segfault that results in your column labels not being printed, though the rest of the figure will display correctly. As such, I like using the PDF output and editing in Inkscape. 
+
+**I had a max copy number of 4, so you will want to check the max of your files and adjust colors as necessary.**
+
+You can cut columns if you want to plot only certain samples. 
 
 *Note: I had trouble getting the Seaborn package to run on the cluster, so I ran this locally.*
 
@@ -261,7 +266,7 @@ The first three columns will be used as the row labels. The rest of the data wil
 
 **Python script (plot_cn_bins.py):**
 ```Bash
-python /scratch/jandrews/bin/plot_cn_bins.py DL_AMPS_MATRIX_5KB.bed 
+python /scratch/jandrews/bin/plot_cn_bins.py FLDL_CN_MATRIX.5KB.bed 
 
 cd 5KB_SPLIT_RESULTS
 for f in *.bed; do
