@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 07/22/2016**  
+**Last updated 08/04/2016**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.** The scripts were created/maintained **by 4 different people over several years**, though efforts have been made to streamline things recently.
@@ -409,9 +409,9 @@ perl /scratch/jandrews/bin/condense_by_bin_JAedit.pl merged_peaks_bins_intersect
 ```
 
 #### 3.) Quantile normalize samples.  
-This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis. You have to denote the column in which the *data to actually QN starts* (5th column here).
+This script will quantile normalize the samples for each bin, ironing out differences in the statistical properties between distributions of the samples. Makes it easier to compare across samples. It's usually used in microarray analysis. You have to denote the column in which the *data to actually QN starts* (6th column here).
 
-> This script is tricky to run. It's tough to run on the CHPC cluster due to the way R is installed, so running it locally is easiest, provided you've got the memory to do it (hint, you don't). The file is likely quite large at this point. If you have to run it on the cluster, you'll have to install R in your home directory. I recommend R-3.2.1 since it includes a bunch of libraries you need that are left out in later versions. R is not memory efficient and your file may be **10gb+**, so this sucker takes a while to run.
+> This script is tricky to run. It's tough to run on the CHPC cluster due to the way R is installed, so running it locally is easiest, provided you've got the memory to do it (hint, you don't). The file is likely quite large at this point. R is not memory efficient and your file may be **10gb+**, so this sucker takes a while to run.
 
 **Bash scripts (quantile_normalize.sh):**
 
@@ -482,8 +482,10 @@ qsub -I -l nodes=1:ppn=1,walltime=24:00:00,vmem=32gb
 module load bedtools2
 
 for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch8*; do 
-	cd "$fold"; for f in *.BL_removed.bam; do 
-		echo "$f"; python /scratch/jandrews/bin/bam_to_RPM_bigwig.py "$f" "${f%.*}".bw; 
+	cd "$fold"; 
+	for f in *.BL_removed.bam; do 
+		echo "$f"; 
+		python /scratch/jandrews/bin/bam_to_RPM_bigwig.py "$f" "${f%.*}".bw; 
 	done; 
 done
 ```
