@@ -106,8 +106,8 @@ wait
 module remove samtools-1.2
 ```
 
-#### 5.) Remove PCR duplicates from BAMs.
-This helps to reduce noise without really affecting sensitivity.
+#### 5.) (Optional) Remove PCR duplicates from BAMs.
+MACs should really handle duplicates fine on its own, so I wouldn't worry too much about this step. This is how I'd do it though. Most of the files only have 3-5% duplicate reads, so I doubt it makes much of a difference.
 
 **Bash script (bam_remove_dups.sh):**  
 ```Bash
