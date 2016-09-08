@@ -435,7 +435,7 @@ for f in *.gz;
 done
 ```
 
-After this point, you're on your own. You have individual sample file and one enormous master table.
+After this point, you're on your own. You have individual sample files and one enormous master table.
 
 ---
 
@@ -628,7 +628,23 @@ Intersect the resulting multimark, filtered variants file for each sample with S
 
 This same principle can be applied to intersections with whatever you want (TF motifs, regulatory elements, etc). Here I show intersections with **super enhancers, regular enhancers (FAIRE-positive, non-TSS MMPIDs that aren't located within SEs), TSSs, and TSSs located within SEs.**
 
-#### 1.) Intersect TSSs with SEs to get those that lie within/outside the SEs. 
+#### 1.) (Optional) Remove coding variants.
+I was only interested in the non-coding variant breakdowns, so I removed those that lied within an exon.
+
+First, get exons from your annotation file.
+
+```Bash
+grep exon /scratch/jandrews/Ref/gencode.v19.annotation_sorted.linc_proteincoding.gtf > /scratch/jandrews/Ref/gencode.v19.annotation_sorted.linc_proteincoding.coding_only.gtf
+```
+
+Then intersect with variants to remove those that overlap the exons.
+
+```Bash
+module load bedtools2
+ bedtools intersect -v -header -a FLDL_CCCB_VARIANTS.MERGED.RNA_DP10.RNA_NODUPS.CHIP_MULTIMARK.SORTED.vcf -b /scratch/jandrews/Ref/gencode.v19.annotation_sorted.linc_proteincoding.coding_only.gtf > FLDL_CCCB_VARIANTS.MERGED.RNA_DP10.RNA_NODUPS.CHIP_MULTIMARK.SORTED.NONCODING_ONLY.vcf
+```
+
+#### 2.) Intersect TSSs with SEs to get those that lie within/outside the SEs. 
 The TSS file here can be found on the Payton Shared Drive in the master files folder (and probably about ten other places as well).
 
 ```Bash
@@ -642,7 +658,7 @@ bedtools intersect -v -a 2kbTSStranscripts_gencode19_protein_coding_positions.be
 ```  
 
   
-#### 2.) Intersect FAIRE-positive MMPID positions with SEs to remove those that overlap  
+#### 3.) Intersect FAIRE-positive MMPID positions with SEs to remove those that overlap  
 Sort and remove dups (shouldn't be any in MMPID positions, though intersects may result in some - an MMPID in two SEs).
 ```
 sort -k1,1 -k2,2n MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS.bed | uniq - > MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed
@@ -654,24 +670,7 @@ bedtools intersect -v -a MMPID_NonTSS_FAIRE_POSITIVE_POSITIONS_UNIQ.bed -b ../SE
 | uniq - > MMPID_NonTSS_FAIRE_POSITIVE_outsideSEs.bed
 ```
 
-#### Optional.) To look only at non-coding variants, annotate with FunSeq2.
-Alright, I'll be honest, I actually **can't stand** [Funseq](http://funseq2.gersteinlab.org/). The UI sucks, you can't turn off the MAF threshold for filtering polymorphisms from 1KG (even if you set it to 1, you'll still lose some for whatever reason), the VCF output from it isn't kosher, and uploading a VCF with sample columns is a moot point, as it blows them all away in the output. Not to mention no drag'n'drop or batch uploading, so it takes ages to simply select all the samples to upload.
-
-Still, its annotations are useful for removing variants predicted to affect *coding regions*. Half the reason I used this is just because Liv did, and I was trying to replicate her findings.
-
-#### i.) Run FunSeq.
-Upload your `combined` files for each sample, set the MAF to 1 since we should have already removed common variants, and let it do its thing. 
-
-#### ii.) Download the output.BED file and parse it.
-This script will parse the funseq file into individual files for each sample. It will also print only those specific to a sample if you provide the `-uniq` flag. A position only file will also be printed for each sample. Recommend running it twice, once with the `-uniq` option and once without. It bases the output names on the sample name within the input file, so no need to specify anything.
-
-**Python script (parse_funseq.py):**
-
-```Bash
-python parse_funseq.py -i <input.bed> -uniq
-```
-
-#### 3.) Intersect the variants with features of interest
+#### 4.) Intersect the variants with features of interest
 This intersects the variants with the SEs, MMPIDs, and TSS positions created in previous steps. This will create a summary file for each sample with counts for each intersection. This filters out variants found near the Ig loci as well, though it does so in a lazy way and just removes all the variants in the region rather than only those that overlap with the Ig genes. Can edit  `/scrach/jandrews/Ref/Ig_Loci.bed` to change these positions. 
 
 The script below is set up to intersect only the ChIP-seq variants, but you can edit it to use your combined variants file for each sample instead. This is also using bed files, but we can use `VCFs` since `VEP` doesn't break the format like `FunSeq` does, so `bedtools` should be able to handle them fine.
@@ -742,4 +741,4 @@ for f in /scratch/jandrews/Data/Variant_Calling/Coding_Noncoding_Merged/COMBINED
 done
 module remove bedtools2
 ```
-```
+
