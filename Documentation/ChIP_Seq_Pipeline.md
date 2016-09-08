@@ -475,20 +475,22 @@ python3 /scratch/jandrews/bin/avg_fc_vals_by_celltype.py -i QN_master_table_RPKM
 ---
 
 ## Making Tracks
-This script will allow you to make **RPM** (reads per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires **pybedtools** - `pip install pybedtools` and bedtools in your path. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
+This script will allow you to make **RPM** (reads per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires **pysam** - `pip install pysam` and `wigToBigWig` from UCSC in your path. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
 
 **Python script (bam_to_RPM_bigwig.py):**  
 ```Bash
-qsub -I -l nodes=1:ppn=1,walltime=24:00:00,vmem=32gb 
+qsub -I -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb 
 
-module load bedtools2
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
 
 for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch8*; do 
 	cd "$fold"; 
 	for f in *.BL_removed.bam; do 
 		echo "$f"; 
-		python /scratch/jandrews/bin/bam_to_RPM_bigwig.py "$f" "${f%.*}".bw; 
-	done; 
+		python /scratch/jandrews/bin/bam_to_RPM_bigwig.py "$f" -o "${f%.*}".bw -n &
+	done
+	wait
 done
 ```
 
