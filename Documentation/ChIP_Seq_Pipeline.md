@@ -475,25 +475,37 @@ python3 /scratch/jandrews/bin/avg_fc_vals_by_celltype.py -i QN_master_table_RPKM
 ---
 
 ## Making Tracks
-This script will allow you to make **RPM** (reads per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires the Python packages **pysam** - `pip install pysam` and **toolz** - `pip install toolz`, and the `wigToBigWig` utility from UCSC in your path. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
+This script will allow you to make **RPKM** (reads per kilobase per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires the Python package **deeptools** - `pip install deeptools`. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
 
-**Note:** This script requires Python2, rather than 3 (which is what most other steps here use). This script also utilizes a python module called `config_utils.py`, which should be stored with all of my other python code. Just drag into into the same folder as this script and create an empty file named `__init__.py` in that folder as well.
+*You can also **subtract input reads** from these if you want, see the other 'input_subtracted' version of this script for that.*
 
-**Python script (bam_to_RPM_bigwig.py):**  
+**Bash script (make_chip_rpkm_tracks.sh & variants):**  
 ```Bash
-qsub -I -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb 
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N MAKE_CHIP_RPKM_TRACKS_1
+#PBS -m e
+#PBS -q old
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb
 
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-source activate py2
+source activate anaconda
 
-for fold in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/Batch8*; do 
-	cd "$fold"; 
-	for f in *.BL_removed.bam; do 
-		echo "$f"; 
-		python /scratch/jandrews/bin/bam_to_RPM_bigwig.py "$f" -o "${f%.*}".bw -n &
-	done
-	wait
+batch=Batch1/
+mark=_K27AC
+treat_suffix=.sorted.BL_removed.bam
+treat=/scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/
+
+# For K4ME3, set -e to 200, for FAIRE use 100, for other marks, use 300. This is just double the -shiftsize used for macs
+# and is supposed to be the fragment length.
+
+for f in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/"$batch"/*"$treat_suffix"; do
+	base=${f##*/}
+	samp=${base%%_*}
+	bamCoverage  -e 300 -p 3 -of bigwig --normalizeUsingRPKM  -bl /scratch/jandrews/Ref/ENCODE_Blacklist_hg19.bed -b "$f" -o "$treat""$batch""$samp""$mark".BL_removed.rpkm.bw ;
 done
+wait
 ```
 
 ---
