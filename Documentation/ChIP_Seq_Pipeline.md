@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 08/24/2016**  
+**Last updated 10/03/2016**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.** The scripts were created/maintained **by 4 different people over several years**, though efforts have been made to streamline things recently.
@@ -478,6 +478,8 @@ python3 /scratch/jandrews/bin/avg_fc_vals_by_celltype.py -i QN_master_table_RPKM
 This script will allow you to make **RPKM** (reads per kilobase per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires the Python package **deeptools** - `pip install deeptools`. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
 
 *You can also **subtract input reads** from these if you want, see the other 'input_subtracted' version of this script for that.*
+
+**If doing it for RNA-seq, remove the `-e` option.**
 
 **Bash script (make_chip_rpkm_tracks.sh & variants):**  
 ```Bash
