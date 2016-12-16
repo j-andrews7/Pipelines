@@ -1,6 +1,5 @@
 # Super Enhancer Calling
-**Last updated 07/29/2016**  
-**Author: jared.andrews07@gmail.com**
+**Last updated 12/16/2016**  
 
 ---
 
@@ -672,7 +671,7 @@ Can now make charts or whatever you want.
 ---
 
 ## Genome wide plots  
-Similar to the CN plots, this lets you view all the SEs for all samples across the genome. It's useful for comparisons to copy number info, and can normalize beforehand by CN if wanted. It also goes through creating correlation plots between the samples.
+Similar to the CN plots, this lets you view all the SEs for all samples across the genome. It's useful for comparisons to copy number info, and can be normalized beforehand by CN if wanted. It also goes through creating correlation plots between the samples.
 
 #### 1. (Optional) Normalize SE signal by copy number.
 This _should_ help to eliminate those that are only different or called due to copy number changes. It will help narrow it down to those that are actually differentially activated between the samples. 
@@ -720,7 +719,7 @@ Args:
 From the resulting table of the last step, create a table containing only the genomic positions (first three columns), followed by the SD diffs for each sample. Leave off the header for now. Can do this all in Excel. Can also use only the CC/CB samples to find the mean and SD if you want, manually doing it in excel.
 
 #### 4.) Intersect with binned genome.
-File order is important here. Cut out the position bin positions and actual data and stick them in a new file.
+File order is important here. Cut out the bin positions and actual data and stick them in a new file.
 
 ```Bash
 module load bedtools2
