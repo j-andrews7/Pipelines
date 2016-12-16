@@ -672,9 +672,32 @@ Can now make charts or whatever you want.
 ---
 
 ## Genome wide plots  
-Similar to the CN plots, this lets you view all the SEs for all samples across the genome. It's useful for comparisons to copy number info. It also goes through creating correlation plots between the samples.
+Similar to the CN plots, this lets you view all the SEs for all samples across the genome. It's useful for comparisons to copy number info, and can normalize beforehand by CN if wanted. It also goes through creating correlation plots between the samples.
 
-#### 1.) Calculate SD differences for samples.  
+#### 1. (Optional) Normalize SE signal by copy number.
+This _should_ help to eliminate those that are only different or called due to copy number changes. It will help narrow it down to those that are actually differentially activated between the samples. 
+
+**Python script (norm_se_by_cn.py):**
+```Python
+"""
+For a given bed-like table of QN'd SE signals, utilize the corresponding copy number data to normalize
+them appropriately (i.e. 1.5x if CN is 3, 0.5x if CN is 1, etc). User may set the overlap threshold for
+the normalization to apply.
+
+Usage: python3 filter_single_SEs.py -i <input.bed> -o <output.bed> [OPTIONS]
+
+Args:
+    (required) -se <se_signal.bed> = Name of bed-like table with QN'd SE signal data starting in the 6th
+        column. Sample headers are split by '_' with the first element used as the sample name to match
+	the CNV data.
+    (required) -cn = Path to folder containing CNV files for each sample to be normalized. 
+    (required) -o <output.bed> = Name of output file to be created.
+    (optional) -t = Percentage of SE that must be overlapped by the CNV for normalization to apply.
+        0.5 (50) by default.
+"""
+```
+
+#### 2.) Calculate SD differences for samples.  
 From the QN'd signal for all SEs, find the standard deviation, average, median, etc for each SE and the difference in standard deviations for each sample from the mean. Does the same for the median absolute deviation. Also creates rugplots for each SE using the standard deviation differences.
 
 **Python script (SE_dists.py):**  
@@ -693,10 +716,10 @@ Args:
 """
 ```
 
-#### 2.) Create new table.  
-From the resulting table of the last step, create a table containing only the genomic positions (first three columns), followed by the SD diffs for each sample. Leave off the header for now. Can do this all in Excel.
+#### 3.) Create new table.  
+From the resulting table of the last step, create a table containing only the genomic positions (first three columns), followed by the SD diffs for each sample. Leave off the header for now. Can do this all in Excel. Can also use only the CC/CB samples to find the mean and SD if you want, manually doing it in excel.
 
-#### 3.) Intersect with binned genome.
+#### 4.) Intersect with binned genome.
 File order is important here. Cut out the position bin positions and actual data and stick them in a new file.
 
 ```Bash
@@ -705,7 +728,7 @@ module load bedtools2
 bedtools intersect -loj -a /scratch/jandrews/Ref/hg19.5kb_bins.bed -b QN_FLDL_CCCB_ONLY_SES_SIGNAL_NO_CHRX_SAMPLES_SD_DIFF_SELECT.bed | cut -f1-3,7-28 > QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed
 ```
 
-#### 4.) Remove regions that don't align.  
+#### 5.) Remove regions that don't align.  
 Remove regions of the genome that don't align, are around centromeres, etc.
 
 ```Bash
@@ -713,7 +736,7 @@ Remove regions of the genome that don't align, are around centromeres, etc.
  rename .bed.exclude .bed QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed.exclude 
 ```
 
-#### 5.) Break up by chromosome.  
+#### 6.) Break up by chromosome.  
 These plots are usually better on a chromosome by chromosome basis, so we can go ahead and make files containing only a single chromosome as well.
 
 ```Bash
@@ -724,7 +747,7 @@ for chr in `cut -f 1 QN_FLDL_CCCB_ONLY_SE_SIGNAL_SD_DIFF_MATRIX.5KB_BINS.bed | u
 done
 ```
 
-#### 6.) Add header back to files.  
+#### 7.) Add header back to files.  
 Labels are good.
 
 ```Bash
@@ -733,7 +756,7 @@ for f in *.bed; do
 done
 ```
 
-#### 7.) Create plots.
+#### 8.) Create plots.
 This script will take a table and make a heatmap from the SD diffs. This script can be edited to change the colors, ranges, size of the figure, etc. I like using PDF output so I can load it into Inkscape after the fact and edit as I want without losing quality. 
 
 ```Python
@@ -742,7 +765,7 @@ for f in *.bed; do
 done
 ```
 
-#### 8.) Make correlation plots.
+#### 9.) Make correlation plots.
 I found correlation plots of the SD differences between samples to also be a good way to show the heterogeneity of tumors, how they tend to cluster together, and how different the normal samples are compared to the tumors. It uses just the columns containing the SDs from mean for each sample, don't need the position columns. I also tried this with just the QN'd signal for each SE for each sample, but it didn't look so great.
 
 ```R
