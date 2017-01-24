@@ -169,7 +169,7 @@ done
 wait
 ```
 
-I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called is indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. 
+I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called or high FDRs are indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. *Removing peaks with high FDRs may be beneficial, though I don't show how to do it here.*
   
 ---
   
