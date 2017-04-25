@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 10/03/2016**  
+**Last updated 04/25/2017**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.** The scripts were created/maintained **by 4 different people over several years**, though efforts have been made to streamline things recently.
@@ -169,7 +169,19 @@ done
 wait
 ```
 
-I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample. A low number of peaks called or high FDRs are indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. *Removing peaks with high FDRs may be beneficial, though I don't show how to do it here.*
+I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample, the script below will summarize a folder of them. A low number of peaks called or high FDRs are indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. *Removing peaks with high FDRs may be beneficial, though I don't show how to do it here.*
+
+**Python script (summarize_macs_peaks.py)**
+```Python
+Summarizes number of peaks and average FDR rate (%) for a folder of MACS peaks.xls files.
+Prints info to an easily copy and pasted file.
+
+Usage: summarize_macs_peaks.py -i input_folder -o <output.txt>
+
+Args:
+    -i (str): Path to folder containing MACS peaks.xls files to process.
+    -o (str): Path to output file.
+```
   
 ---
   
