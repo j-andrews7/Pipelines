@@ -32,7 +32,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - May also need the preprocessCore package installed. Just use R studio to install.
 
   
-#### Sections  
+#### Sections 
+- [Quality Control](#quality-control)
 - [Preprocessing and Peak Calling](#peak-calling)
 - [Peak Processing](#peak-processing)
 - [Binning and Normalization](#binning-and-normalization)
@@ -42,6 +43,12 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 
 ---
+
+## Quality Control
+First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use.
+
+There are a few other steps where it's useful to QC things. Look at your BAM files after alignment in IGV to see if you actually have visible peaks or a ton of background. Additionally, after calling peaks, check the `peaks.xls` file for each sample for peak numbers and FDRs. There's a peak below that will do this for you.
+
 
 ## Peak Calling  
 This section walks through aligning the fastQ files to the genome, sorting and indexing the bam files, and actually calling the peaks.
@@ -169,6 +176,7 @@ done
 wait
 ```
 
+#### 8.) Peek at the peak files.
 I **highly recommend** at least taking a *peek* at the `peaks.xls` files for each sample, the script below will summarize a folder of them. A low number of peaks called or high FDRs are indicative of poor sequencing quality. You can also run the files through a QC package like [ChIPQC](http://bioconductor.org/packages/release/bioc/html/ChIPQC.html), which give additional metrics and are pretty easy to use. *Removing peaks with high FDRs may be beneficial, though I don't show how to do it here.*
 
 **Python script (summarize_macs_peaks.py)**
@@ -182,7 +190,31 @@ Args:
     -i (str): Path to folder containing MACS peaks.xls files to process.
     -o (str): Path to output file.
 ```
-  
+
+#### 9.) Make UCSC tracks from the peaks.bed files.
+Uploading individual BED files to UCSC is annoying when you have dozens of samples. Use a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html) to keep track of your samples. It's a bit of a pain to set up, but it'll make your life much easier.
+
+Anyway, you'll want to make bigBed files from the `peaks.bed` file for each sample. To do so, you'll need to round the 5th column of each file to an integer and make sure it's within the range of 0-1000 or the `bedToBigBed` utility will throw a fit. I made a python script to do just that. It divides the scores by 5 (which *usually* gets them all below 500). Additional commands to get rid of chromosomes we don't care about and convert to `bigBed`.
+
+**Python script (div_peaks_bed_scores.py):**
+```Bash
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+module load kentUtils
+fetchChromSizes hg19 > hg19.chrom.sizes
+
+for f in *.bed; do
+	python /scratch/jandrews/bin/div_peaks_bed_scores.py "$f" "$f".round
+	(sed '/_g\|chrM\|chrY\|chrX\|chr23/d' "$f".round) > "$f".final 
+	bedToBigBed "$f".final hg19.chrom.sizes "$f".bb
+	rm "$f"
+done
+
+rename .bed.bb .bb *.bed.bb
+```
+
+Now you're ready to hook it up in your track hub.
+
 ---
   
 ## Peak Processing  
