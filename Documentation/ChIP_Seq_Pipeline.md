@@ -194,7 +194,7 @@ Args:
 #### 9.) Make UCSC tracks from the peaks.bed files.
 Uploading individual BED files to UCSC is annoying when you have dozens of samples. Use a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html) to keep track of your samples. It's a bit of a pain to set up, but it'll make your life much easier.
 
-Anyway, you'll want to make bigBed files from the `peaks.bed` file for each sample. To do so, you'll need to round the 5th column of each file to an integer and make sure it's within the range of 0-1000 or the `bedToBigBed` utility will throw a fit. I made a python script to do just that. It divides the scores by 5 (which *usually* gets them all below 500). Additional commands to get rid of chromosomes we don't care about and convert to `bigBed`.
+Anyway, you'll want to make bigBed files from the `peaks.bed` file for each sample. To do so, you'll need to round the 5th column of each file to an integer and make sure it's within the range of 0-1000 or the `bedToBigBed` utility will throw a fit. I made a python script to do just that. If the score is > 1000, it will just cap it at 1000. Additional commands to get rid of chromosomes we don't care about and convert to `bigBed`.
 
 **Python script (div_peaks_bed_scores.py):**
 ```Bash
