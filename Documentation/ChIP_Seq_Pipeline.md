@@ -1,8 +1,8 @@
 # ChIP-SEQ Pipeline
-**Last updated 04/25/2017**  
+**Last updated 07/20/2017**  
 Author: jared.andrews07@gmail.com  
 
-This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but the `.wig` and `peaks.bed` files **can be handled separately** until the last portion of the pipeline in which they are normalized and merged. Additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.** The scripts were created/maintained **by 4 different people over several years**, though efforts have been made to streamline things recently.
+This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
@@ -21,8 +21,6 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - MACS requires Python 2.7.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
-- [Perl](https://www.perl.org/)
-  - For old legacy scripts. Disgusting, I know. Will replace with python in time.
 - [MACS 1.4](http://liulab.dfci.harvard.edu/MACS/)
   - MACS is our peak caller of choice. There are tons of them out there, but it's a pretty popular one.
 - [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
@@ -33,7 +31,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
   
 #### Sections 
-- [Quality Control](#quality-control)
+- [Quick Quality Control](#quick-quality-control)
+- [Alignment](#alignment)
 - [Preprocessing and Peak Calling](#peak-calling)
 - [Peak Processing](#peak-processing)
 - [Binning and Normalization](#binning-and-normalization)
@@ -44,10 +43,10 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 
 ---
 
-## Quality Control
-First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use.
+## Quick Quality Control
+First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use and will indicate whether you might need to trim adaptors off your reads.
 
-There are a few other steps where it's useful to QC things. Look at your BAM files after alignment in IGV to see if you actually have visible peaks or a ton of background. Additionally, after calling peaks, check the `peaks.xls` file for each sample for peak numbers and FDRs. There's a peak below that will do this for you.
+Low
 
 
 ## Peak Calling  
