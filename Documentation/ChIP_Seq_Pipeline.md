@@ -1,8 +1,8 @@
 # ChIP-SEQ Pipeline
-**Last updated 07/20/2017**  
+**Last updated 07/28/2017**  
 Author: jared.andrews07@gmail.com  
 
-This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed.
+This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
@@ -26,8 +26,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
   - This isn't necessary if you already have aligned BAMs that you're working from.
 - [R](https://www.r-project.org/)
-  - One or two of the python scripts invoke some R code.
-  - May also need the preprocessCore package installed. Just use R studio to install.
+  - May also need the Diffbind and ChIPQC packages installed installed.
 
   
 #### Sections 
@@ -44,9 +43,10 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 ---
 
 ## Quick Quality Control
-First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use and will indicate whether you might need to trim adaptors off your reads.
+First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use and will indicate whether you might need to trim adaptors off your reads. It will tell you how many duplicate reads you have, which for histone ChIP-seq shouldn't be more than 20% or so. 
 
-Low
+
+## Alignment
 
 
 ## Peak Calling  
