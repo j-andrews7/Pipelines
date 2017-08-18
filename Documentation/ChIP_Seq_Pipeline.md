@@ -8,19 +8,19 @@ This was done on the CHPC cluster, so all of the `export`, `source`, and `module
 
 > Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. 
 
-All necessary scripts should be [here](https://github.com/j-andrews7/Pipelines/tree/master/Code). They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
+All necessary scripts should be [here](https://github.com/j-andrews7/Pipelines/tree/master/Code/ChIP_Seq). They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
 
 An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with a bit of time, maybe I'll get around to it at some point.
 
 **Software Requirements:**  
 - [Samtools](http://www.htslib.org/)  
   - This should be available on the CHPC cluster.
-- [Python3 & 2.7](https://www.python.org/downloads/)
+- [Python2.7](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
   - MACS requires Python 2.7.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
-- [MACS 2](https://github.com/taoliu/MACS)
+- [MACS2](https://github.com/taoliu/MACS)
   - MACS2 is our peak caller of choice. There are tons of them out there, but it's a pretty popular one.
   - Install with `pip install macs2`
 - [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
@@ -28,7 +28,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [kentUtils](https://github.com/ENCODE-DCC/kentUtils)
   - Also on CHPC cluster.
 - [R](https://www.r-project.org/)
-  - Also need the DiffBind and ChIPQC packages installed.
+  - Also need the DiffBind and ChIPQC packages installed. I had trouble installing these on the CHPC cluster.
 ```
 ## try http:// if https:// URLs are not supported
 source("https://bioconductor.org/biocLite.R")
@@ -41,9 +41,7 @@ biocLite(c("ChIPQC", "DiffBind"))
 - [Alignment](#alignment)
 - [Peak Calling](#peak-calling)
 - [QC with ChIPQC](#quality-control)
-- [Normalize Peak Regions Only](#normalize-peak-regions-only)
 - [Making Genome Browser Tracks](#making-tracks)
-- [Other Useful Scripts](#other-useful-scripts)
 
 
 ---
