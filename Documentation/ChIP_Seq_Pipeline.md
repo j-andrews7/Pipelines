@@ -164,7 +164,34 @@ This sample sheet will tell ChIPQC where to look for files, the different condit
 | HUT78r   | HUT78  | H3K27AC | None      | ROMIDEPSIN | 1         | ../BAMs/Batch12/HUT78.ROMI.H3K27AC.sorted.BL_removed.bam       | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HUT78.ROMI.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak       | bed        |
 | OCILY7u  | OCILY7 | H3K27AC | None      | UNTREATED  | 1         | ../BAMs/Batch14/OCILY7.UNTREATED.H3K27AC.sorted.BL_removed.bam | OCILY7c   | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/OCILY7.UNTREATED.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak | bed        |
 
-#### 2.) 
+#### 2.) Load your sample sheet into `ChIPQC`.
+Pretty simple. Don't type the `>`, it's just the code prompt.
+
+```R
+> library(ChIPQC)
+> samples = read.csv("example_QCexperiment.csv")
+
+```
+
+#### 3.) Create the ChIPQC Experiment.
+Also really simple. This may take several hours to run. It will display some summary statistics about your experiment and create an interactive `html` summary report for your viewing. It includes a whole host of images and tables with nice captions that explain the various statistics and metrics for each sample.
+
+```R
+> experiment = ChIPQC(samples)
+> experiment
+> ChIPQCreport(experiment)
+```
+
+#### 4.) Interpret your results.
+Read the report, learn the metrics, and determine if your samples are of good quality. I pay particular attention to `RiP%` (Reads in Peaks) metric, which is a good measure of enrichmentIf any need to be resubmitted for sequencing, now's the time. Save this so you can include some QC figures in the supplement of your fascinating future paper.
+
+## Making Tracks
+Differential peaks in a table are great and all, but it'd be better to *see* them, right? So let's whip up some tracks and put them in a place viewable to UCSC. Continous ChIP-seq data files are big, even when compressed, so uploading them to a genome browser isn't really feasible. Fortunately, there's an easy way around this - using a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html). 
+These take some time to set up, but are easy to add tracks to and allow for easier viewing of your data. I won't go over how to create them here, but there are a few things to note about them. Most importantly, **your data has to be located in an area accessible outside your network**. The genome browser needs to access these files to view the data for *the area that you currently want to view*. So the whole track isn't loaded at once, which really reduces memory and performance needs.
+Secondly, the data files have to be in compressed formats, **so the `narrowPeak` and `bedGraph` formats won't work for this**. We need to convert them to `bigBed` and `bigWig`, which is pretty easy.
+
+#### 1.) Convert the `narrowPeak` files to `bigBed` format.
+
 
 #### 9.) Make UCSC tracks from the peaks.bed files.
 Uploading individual BED files to UCSC is annoying when you have dozens of samples. Use a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html) to keep track of your samples. It's a bit of a pain to set up, but it'll make your life much easier.
@@ -189,48 +216,6 @@ rename .bed.bb .bb *.bed.bb
 ```
 
 Now you're ready to hook it up in your track hub.
-
----
-  
-
----
-
-## Making Tracks
-This script will allow you to make **RPKM** (reads per kilobase per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires the Python package **deeptools** - `pip install deeptools`. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
-
-*You can also **subtract input reads** from these if you want, see the other 'input_subtracted' version of this script for that.*
-
-**If doing it for RNA-seq, remove the `-e` option.**
-
-**Bash script (make_chip_rpkm_tracks.sh & variants):**  
-```Bash
-#!/bin/sh
-
-# give the job a name to help keep track of running jobs (optional)
-#PBS -N MAKE_CHIP_RPKM_TRACKS_1
-#PBS -m e
-#PBS -q old
-#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb
-
-export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-source activate anaconda
-
-batch=Batch1/
-mark=_K27AC
-treat_suffix=.sorted.BL_removed.bam
-treat=/scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/
-
-# For K4ME3, set -e to 200, for FAIRE use 100, for other marks, use 300. This is just double the -shiftsize used for macs
-# and is supposed to be the fragment length.
-
-for f in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/"$batch"/*"$treat_suffix"; do
-	base=${f##*/}
-	samp=${base%%_*}
-	bamCoverage  -e 300 -p 3 -of bigwig --normalizeUsingRPKM  -bl /scratch/jandrews/Ref/ENCODE_Blacklist_hg19.bed -b "$f" -o "$treat""$batch""$samp""$mark".BL_removed.rpkm.bw ;
-done
-wait
-```
-
 ---
 
 ## Other Useful Scripts   
