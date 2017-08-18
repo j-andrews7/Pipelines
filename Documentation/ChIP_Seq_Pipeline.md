@@ -185,44 +185,33 @@ Also really simple. This may take several hours to run. It will display some sum
 #### 4.) Interpret your results.
 Read the report, learn the metrics, and determine if your samples are of good quality. I pay particular attention to `RiP%` (Reads in Peaks) metric, which is a good measure of enrichmentIf any need to be resubmitted for sequencing, now's the time. Save this so you can include some QC figures in the supplement of your fascinating future paper.
 
+---
+
 ## Making Tracks
 Differential peaks in a table are great and all, but it'd be better to *see* them, right? So let's whip up some tracks and put them in a place viewable to UCSC. Continous ChIP-seq data files are big, even when compressed, so uploading them to a genome browser isn't really feasible. Fortunately, there's an easy way around this - using a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html). 
 These take some time to set up, but are easy to add tracks to and allow for easier viewing of your data. I won't go over how to create them here, but there are a few things to note about them. Most importantly, **your data has to be located in an area accessible outside your network**. The genome browser needs to access these files to view the data for *the area that you currently want to view*. So the whole track isn't loaded at once, which really reduces memory and performance needs.
 Secondly, the data files have to be in compressed formats, **so the `narrowPeak` and `bedGraph` formats won't work for this**. We need to convert them to `bigBed` and `bigWig`, which is pretty easy.
 
 #### 1.) Convert the `narrowPeak` files to `bigBed` format.
+Easy enough with the handy [`narrowpeak2bb.sh` script](https://github.com/j-andrews7/Pipelines/blob/Master/Code/ChIP_Seq/narrowPeak2bb.sh). You'll need to edit this script to point to the location of wherever you put the `narrowPeak.as` file as well. Then just navigate to your directory containing the `narrowPeak` files, get your genome chromosome sizes, and run the script on the files.
 
-
-#### 9.) Make UCSC tracks from the peaks.bed files.
-Uploading individual BED files to UCSC is annoying when you have dozens of samples. Use a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html) to keep track of your samples. It's a bit of a pain to set up, but it'll make your life much easier.
-
-Anyway, you'll want to make bigBed files from the `peaks.bed` file for each sample. To do so, you'll need to round the 5th column of each file to an integer and make sure it's within the range of 0-1000 or the `bedToBigBed` utility will throw a fit. I made a python script to do just that. If the score is > 1000, it will just cap it at 1000. Additional commands to get rid of chromosomes we don't care about and convert to `bigBed`.
-
-**Python script (div_peaks_bed_scores.py):**
 ```Bash
-export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-source activate anaconda
-module load kentUtils
-fetchChromSizes hg19 > hg19.chrom.sizes
-
-for f in *.bed; do
-	python /scratch/jandrews/bin/div_peaks_bed_scores.py "$f" "$f".round
-	(sed '/_g\|chrM\|chrY\|chrX\|chr23/d' "$f".round) > "$f".final 
-	bedToBigBed "$f".final hg19.chrom.sizes "$f".bb
-	rm "$f"
+fetchChromSizes hg19 > hg19.sizes
+for f in *.narrowPeak; do
+	narrowpeak2bb.sh "$f" hg19.sizes
 done
-
-rename .bed.bb .bb *.bed.bb
 ```
 
-Now you're ready to hook it up in your track hub.
----
+#### 2.) Convert the `bedGraph` files to `bigWig` format.
+Again, pretty easy. The bedGraph files are already normalized for read depth, so we can just go ahead and straight convert them. Just navigate to the directory containing them and use the `wigToBigWig` utility from `kentUtils`.
 
-## Other Useful Scripts   
-These scripts might be useful for other analyses, but they're pretty complex, so I'm not going to go into them much here. Just read their usage statements to figure out what they do/how to use them.
+```Bash
+for f in *.bedGraph; do
+	bedGraphToBigWig "$f" hg19.sizes "$f".bw
+done
+```
 
-Get genes in range of a loci, given a GTF file containing genes. Can also filter out those that overlap a TSS, etc. Useful for identifying REs that aren't promoters. Again, may want to read the script itself, as it has a number of options.  
-`get_genes_in_range.py`
+Now you just stick both these sets of files somewhere UCSC or another genome browser can access them and create your track hub.
 
-To do a variety of analyses between samples, use below script. Reading it is your best bet, it has many options that grant it power and flexibility. Good for comparisons between groups of samples, as it can calculate fold changes, p-vals, etc.  
-`Analyze_Loci.py`
+
+
