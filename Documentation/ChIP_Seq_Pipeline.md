@@ -1,12 +1,12 @@
 # ChIP-SEQ Pipeline
-**Last updated 08/15/2017**  
+**Last updated 08/18/2017**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
 
 This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
-> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. All scripts listed here should be accessible to anyone in the Payton Lab.
+> Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. 
 
 All necessary scripts should be [here](https://github.com/j-andrews7/Pipelines/tree/master/Code). They are also in `/scratch/jandrews/bin/` or `/scratch/jandrews/Bash_Scripts/` on the cluster as well as stored on my local PC and external hard drive.  
 
@@ -25,26 +25,30 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - Install with `pip install macs2`
 - [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
   - This isn't necessary if you already have aligned BAMs that you're working from.
-- [R](https://www.r-project.org/)
-  - Also need the DiffBind and ChIPQC packages installed installed.
 - [kentUtils](https://github.com/ENCODE-DCC/kentUtils)
   - Also on CHPC cluster.
+- [R](https://www.r-project.org/)
+  - Also need the DiffBind and ChIPQC packages installed.
+```
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite(c("ChIPQC", "DiffBind"))
+```
 
   
 #### Sections 
-- [Quick Quality Control](#quick-quality-control)
+- [Spot Checking Files](#quick-spot-check)
 - [Alignment](#alignment)
 - [Peak Calling](#peak-calling)
-- [Peak Processing](#peak-processing)
-- [Binning and Normalization](#binning-and-normalization)
+- [QC with ChIPQC](#quality-control)
 - [Normalize Peak Regions Only](#normalize-peak-regions-only)
-- [Making RPM Tracks Directly From Bams](#making-tracks)
+- [Making Genome Browser Tracks](#making-tracks)
 - [Other Useful Scripts](#other-useful-scripts)
 
 
 ---
 
-## Quick Quality Control
+## Quick Spot Check
 First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use and will indicate whether you might need to trim adaptors off your reads. It will tell you how many duplicate reads you have, which for histone ChIP-seq shouldn't be more than 20% or so. 
 
 ---
@@ -102,7 +106,7 @@ module remove samtools
 ---
 
 ## Peak Calling  
-Now we're ready to call peaks with `MACS2`. First, move the `bam` files into batches - all the actual samples along with a single input that will be used for all of them.
+Now we're ready to call peaks with `MACS2`. First, move the `bam` files into batches - all the actual samples along with a single input into each folder that will be used for all of the samples in that folder.
 
 #### 1.) Call peaks with MACS2.
 `MACS2` has a lot of options and things you can tweak. Chief among them are the `--qvalue` and `--mfold` options. `qvalue` is the threshold for which to consider a peak significant and real - it's recommended to set it to `0.01` for ChIP-seq with relatively sharp peaks expected. Think transcription factors and sharp histone marks like H3K4me3, H3K27ac. It can be relaxed to `0.05` or `0.1` and the `--broad` option used if you expect broad peaks (H3K27me3, H3K9me3, etc). The `--mfold` option is used to select the regions within MFOLD range of high-confidence enrichment ratio against background to build the extension model. The regions must be lower than the upper limit, and higher than the lower limit of fold enrichment. DEFAULT:5,50 means using all regions not too low (>5) and not too high (<50) to build paired-peaks model. The `MACS2` author recommends playing with this value, and I tweak it here to be slightly more stringent with the regions used to build the paired-peaks model.
@@ -145,7 +149,48 @@ This will spit out a bunch of files. I recommend reading the `MACS2` documentati
 You'll likely want to know how well your ChIP actually worked, right? Looking at the percentage of reads in peaks or in blacklisted regions can tell you a lot about how well the enrichment worked. And knowing how close to each other your replicates are doesn't hurt either. Fortunately, [ChIPQC](http://bioconductor.org/packages/release/bioc/vignettes/ChIPQC/inst/doc/ChIPQC.pdf) is a nifty `R` package that can do all that for you with little work on your part. The linked manual goes into way more detail than I will here, so check there if you get stuck.
 
 #### 1.) Set up your experiment sample sheet.
+This sample sheet will tell ChIPQC where to look for files, the different conditions or treatment between samples, which samples are recplicates, etc. An example is below.
 
+| SampleID | Tissue | Factor  | Condition | Treatment  | Replicate | bamReads                                                       | ControlID | bamControl                                                   | Peaks                                                                                               | PeakCaller |
+|----------|--------|---------|-----------|------------|-----------|----------------------------------------------------------------|-----------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|------------|
+| HHu      | HH     | H3AC    | None      | UNTREATED  | 1         | ../BAMs/Batch11/HH.UNTREATED.H3AC.sorted.BL_removed.bam        | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.UNTREATED.H3AC.sorted.BL_REMOVED.peaks.narrowPeak           | bed        |
+| HHr      | HH     | H3AC    | None      | ROMIDEPSIN | 1         | ../BAMs/Batch11/HH.ROMI.H3AC.sorted.BL_removed.bam             | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.ROMI.H3AC.sorted.BL_REMOVED.peaks.narrowPeak                | bed        |
+| HUT78u   | HUT78  | H3AC    | None      | UNTREATED  | 1         | ../BAMs/Batch12/HUT78.UNTREATED.H3AC.sorted.BL_removed.bam     | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.UNTREATED.H3AC.sorted.BL_REMOVED.peaks.narrowPeak        | bed        |
+| HUT78r   | HUT78  | H3AC    | None      | ROMIDEPSIN | 1         | ../BAMs/Batch12/HUT78.ROMI.H3AC.sorted.BL_removed.bam          | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.ROMI.H3AC.sorted.BL_REMOVED.peaks.narrowPeak             | bed        |
+| OCILY7u  | OCILY7 | H3AC    | None      | UNTREATED  | 1         | ../BAMs/Batch14/OCILY7.UNTREATED.H3AC.sorted.BL_removed.bam    | OCILY7c   | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/OCILY7.UNTREATED.H3AC.sorted.BL_REMOVED.peaks.narrowPeak       | bed        |
+| HHu      | HH     | H3K27AC | None      | UNTREATED  | 1         | ../BAMs/Batch11/HH.UNTREATED.H3K27AC.sorted.BL_removed.bam     | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HH.UNTREATED.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak     | bed        |
+| HHr      | HH     | H3K27AC | None      | ROMIDEPSIN | 1         | ../BAMs/Batch11/HH.ROMI.H3K27AC.sorted.BL_removed.bam          | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HH.ROMI.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak          | bed        |
+| HUT78u   | HUT78  | H3K27AC | None      | UNTREATED  | 1         | ../BAMs/Batch12/HUT78.UNTREATED.H3K27AC.sorted.BL_removed.bam  | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HUT78.UNTREATED.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak  | bed        |
+| HUT78r   | HUT78  | H3K27AC | None      | ROMIDEPSIN | 1         | ../BAMs/Batch12/HUT78.ROMI.H3K27AC.sorted.BL_removed.bam       | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HUT78.ROMI.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak       | bed        |
+| OCILY7u  | OCILY7 | H3K27AC | None      | UNTREATED  | 1         | ../BAMs/Batch14/OCILY7.UNTREATED.H3K27AC.sorted.BL_removed.bam | OCILY7c   | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/OCILY7.UNTREATED.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak | bed        |
+
+#### 2.) Load your sample sheet into `ChIPQC`.
+Pretty simple. Don't type the `>`, it's just the code prompt.
+
+```R
+> library(ChIPQC)
+> samples = read.csv("example_QCexperiment.csv")
+
+```
+
+#### 3.) Create the ChIPQC Experiment.
+Also really simple. This may take several hours to run. It will display some summary statistics about your experiment and create an interactive `html` summary report for your viewing. It includes a whole host of images and tables with nice captions that explain the various statistics and metrics for each sample.
+
+```R
+> experiment = ChIPQC(samples)
+> experiment
+> ChIPQCreport(experiment)
+```
+
+#### 4.) Interpret your results.
+Read the report, learn the metrics, and determine if your samples are of good quality. I pay particular attention to `RiP%` (Reads in Peaks) metric, which is a good measure of enrichmentIf any need to be resubmitted for sequencing, now's the time. Save this so you can include some QC figures in the supplement of your fascinating future paper.
+
+## Making Tracks
+Differential peaks in a table are great and all, but it'd be better to *see* them, right? So let's whip up some tracks and put them in a place viewable to UCSC. Continous ChIP-seq data files are big, even when compressed, so uploading them to a genome browser isn't really feasible. Fortunately, there's an easy way around this - using a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html). 
+These take some time to set up, but are easy to add tracks to and allow for easier viewing of your data. I won't go over how to create them here, but there are a few things to note about them. Most importantly, **your data has to be located in an area accessible outside your network**. The genome browser needs to access these files to view the data for *the area that you currently want to view*. So the whole track isn't loaded at once, which really reduces memory and performance needs.
+Secondly, the data files have to be in compressed formats, **so the `narrowPeak` and `bedGraph` formats won't work for this**. We need to convert them to `bigBed` and `bigWig`, which is pretty easy.
+
+#### 1.) Convert the `narrowPeak` files to `bigBed` format.
 
 
 #### 9.) Make UCSC tracks from the peaks.bed files.
@@ -171,48 +216,6 @@ rename .bed.bb .bb *.bed.bb
 ```
 
 Now you're ready to hook it up in your track hub.
-
----
-  
-
----
-
-## Making Tracks
-This script will allow you to make **RPKM** (reads per kilobase per million mapped reads) bigwig tracks directly from `.bam` files that you can then observe in UCSC. This script requires the Python package **deeptools** - `pip install deeptools`. I iterate through folders each containing a few files, but you can also just chuck them all in a folder. I just didn't feel like waiting that long. Once done, just throw the bigwig files into a folder that can be seen from outside your network and link to them from UCSC. Saves you the hassle of uploading large files, though you do need to store them.
-
-*You can also **subtract input reads** from these if you want, see the other 'input_subtracted' version of this script for that.*
-
-**If doing it for RNA-seq, remove the `-e` option.**
-
-**Bash script (make_chip_rpkm_tracks.sh & variants):**  
-```Bash
-#!/bin/sh
-
-# give the job a name to help keep track of running jobs (optional)
-#PBS -N MAKE_CHIP_RPKM_TRACKS_1
-#PBS -m e
-#PBS -q old
-#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb
-
-export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
-source activate anaconda
-
-batch=Batch1/
-mark=_K27AC
-treat_suffix=.sorted.BL_removed.bam
-treat=/scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/
-
-# For K4ME3, set -e to 200, for FAIRE use 100, for other marks, use 300. This is just double the -shiftsize used for macs
-# and is supposed to be the fragment length.
-
-for f in /scratch/jandrews/Data/ChIP_Seq/BAMs/K27AC/"$batch"/*"$treat_suffix"; do
-	base=${f##*/}
-	samp=${base%%_*}
-	bamCoverage  -e 300 -p 3 -of bigwig --normalizeUsingRPKM  -bl /scratch/jandrews/Ref/ENCODE_Blacklist_hg19.bed -b "$f" -o "$treat""$batch""$samp""$mark".BL_removed.rpkm.bw ;
-done
-wait
-```
-
 ---
 
 ## Other Useful Scripts   
