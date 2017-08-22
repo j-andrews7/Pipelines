@@ -181,7 +181,7 @@ Also really simple. This may take several hours to run. It will display some sum
 ```
 
 #### 4.) Interpret your results.
-Read the report, learn the metrics, and determine if your samples are of good quality. I pay particular attention to `RiP%` (Reads in Peaks) metric, which is a good measure of enrichmentIf any need to be resubmitted for sequencing, now's the time. Save this so you can include some QC figures in the supplement of your fascinating future paper.
+Read the report, learn the metrics, and determine if your samples are of good quality. I pay particular attention to `RiP%` (Reads in Peaks) metric, which is a good measure of enrichment. If any need to be resubmitted for sequencing, now's the time. Save this so you can include some QC figures in the supplement of your fascinating future paper.
 
 ---
 
