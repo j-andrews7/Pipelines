@@ -109,7 +109,7 @@ Now we're ready to call peaks with `MACS2`. First, move the `bam` files into bat
 #### 1.) Call peaks with MACS2.
 `MACS2` has a lot of options and things you can tweak. Chief among them are the `--qvalue` and `--mfold` options. `qvalue` is the threshold for which to consider a peak significant and real - it's recommended to set it to `0.01` for ChIP-seq with relatively sharp peaks expected. Think transcription factors and sharp histone marks like H3K4me3, H3K27ac. It can be relaxed to `0.05` or `0.1` and the `--broad` option used if you expect broad peaks (H3K27me3, H3K9me3, etc). The `--mfold` option is used to select the regions within MFOLD range of high-confidence enrichment ratio against background to build the extension model. The regions must be lower than the upper limit, and higher than the lower limit of fold enrichment. DEFAULT:5,50 means using all regions not too low (>5) and not too high (<50) to build paired-peaks model. The `MACS2` author recommends playing with this value, and I tweak it here to be slightly more stringent with the regions used to build the paired-peaks model.
 
-The `-B` option will output signal tracks in `bedGraph` format (which we'll convert to `bigWig` format later). The `--SPMR` option will scale this signal to signal per million reads, normalizing for read depth differences between samples. This will make our tracks look better and allow them to be much more appropriate for figures.
+The `-B` option will output signal tracks in `bedGraph` format (which we'll convert to `bigWig` format later). The `--SPMR` option will scale this signal to signal per million reads, normalizing for read depth differences between samples. However, these `bedGraph` files look like crap in browsers, so we'll make our own `bigWig` files from the `bam` files a bit later.
 
 > The original `MACS` sometimes had trouble building an appropriate model that would extend reads to better represent the size of the actual DNA fragment and therefore, binding site for your protein. If this extension isn't done, you tend to get a pileup of reads on both sides of the actual peak from the forward and reverse strands, ending up with a dip in the middle. `MACS2` is *supposed* to be better at this, but you can still disable it with `--nomodel` and set the `--extsize` on your own if you want. For the old `MACS`, which used an option called `--shiftsize` instead of `--extsize`, for FAIRE I used `--shiftsize=50`, for H3K4me3 `--shiftsize=100`, and for other histone marks I used `--shiftsize=150`. For TFs, you should try to set it to the size of the typical binding site for that TF. **I don't mess with any of that here, I let `MACS2` build the model for me.**
 
@@ -139,7 +139,7 @@ done
 wait
 ```
 
-This will spit out a bunch of files. I recommend reading the `MACS2` documentation to fully understand them all. For now, all we really care about are the `narrowPeak` and `bedGraph` files.
+This will spit out a bunch of files. I recommend reading the `MACS2` documentation to fully understand them all. For now, all we really care about are the `narrowPeak`.
 
 ---
 
@@ -200,13 +200,35 @@ for f in *.narrowPeak; do
 done
 ```
 
-#### 2.) Convert the `bedGraph` files to `bigWig` format.
-Again, pretty easy. The bedGraph files are already normalized for read depth (`-SRPM` option from MACS2), so we can just go ahead and straight convert them. Just navigate to the directory containing them and use the `wigToBigWig` utility from `kentUtils`. You can also create these tracks directly from the `bam` files using something like [deepTools](https://deeptools.github.io/) if you wanted to try some other normalization methods or subtracting the input reads, etc.
+#### 2.) Convert the `bam` files to `bigWig` format.
+Again, pretty easy. I use [deepTools](https://deeptools.github.io/) to create these files. The `-e` option should be set to your average fragment size (which can be guessed or determined from the output of `ChIPQC`). The `-bs` options sets the bin size, so it can be decreased for increased resolution or increased for smaller files. The `-bl` option allows you to specify a blacklist, though we've already removed these reads in this case. The `-b` option is for your input file, and `-o` is the output file. The `-p` options allows you to set the number of processing cores to be utilized.
 
+**Bash script (make_chip_rpkm_tracks.sh):
 ```Bash
-for f in *.bedGraph; do
-	bedGraphToBigWig "$f" hg19.sizes "$f".bw
+#!/bin/sh
+
+# give the job a name to help keep track of running jobs (optional)
+#PBS -N MAKE_CHIP_RPKM_TRACKS_1
+#PBS -m e
+#PBS -q old
+#PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb
+
+export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
+source activate anaconda
+
+batch=Batch1/
+
+# For K4ME3, set -e to 200, for FAIRE use 100, for other marks, use 300. This is just double the -shiftsize used for macs
+# and is supposed to be the fragment length.
+
+cd /scratch/jandrews/Data/ChIP_Seq/T_Cell/BAMs/"$batch"
+
+for f in *.BL_removed.bam; do
+	bamCoverage  -e 300 -p 8 -of bigwig -bs 10 --normalizeUsingRPKM  -bl /scratch/jandrews/Ref/ENCODE_Blacklist_hg19.bed -b "$f" -o "$f".bw ;
 done
+wait
+
+rename .bam.bw .RPKM.bw *.bw 
 ```
 
 Now you just stick both these sets of files somewhere UCSC or another genome browser can access them and create your track hub.
