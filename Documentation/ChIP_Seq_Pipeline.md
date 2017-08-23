@@ -47,7 +47,7 @@ biocLite(c("ChIPQC", "DiffBind"))
 ---
 
 ## Quick Spot Check
-First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use and will indicate whether you might need to trim adaptors off your reads. It will tell you how many duplicate reads you have, which for histone ChIP-seq shouldn't be more than 20% or so. 
+First things first, check your actual sequence files to be sure your data isn't hot garbage before you go through all of this. I generally recommend [FASTQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), as it gives a good overview of how well your sequencing went. It's also dead easy to use and will indicate whether you might need to trim adaptors off your reads. It will tell you how many duplicate reads you have, which for histone ChIP-seq shouldn't be more than 20% or so. For TF ChIP, this might get higher, as the peaks are usually sharper. Any peakcaller worth it's weight will handle these appropriately, so it's usually not necessary to remove them, though it likely wouldn't hurt anything if you did. I've heard arguments for both choices.
 
 ---
 
@@ -187,8 +187,8 @@ Read the report, learn the metrics, and determine if your samples are of good qu
 
 ## Making Tracks
 Differential peaks in a table are great and all, but it'd be better to *see* them, right? So let's whip up some tracks and put them in a place viewable to UCSC. Continous ChIP-seq data files are big, even when compressed, so uploading them to a genome browser isn't really feasible. Fortunately, there's an easy way around this - using a [track hub](https://genome.ucsc.edu/goldenpath/help/hgTrackHubHelp.html). 
-These take some time to set up, but are easy to add tracks to and allow for easier viewing of your data. I won't go over how to create them here, but there are a few things to note about them. Most importantly, **your data has to be located in an area accessible outside your network**. The genome browser needs to access these files to view the data for *the area that you currently want to view*. So the whole track isn't loaded at once, which really reduces memory and performance needs.
-Secondly, the data files have to be in compressed formats, **so the `narrowPeak` and `bedGraph` formats won't work for this**. We need to convert them to `bigBed` and `bigWig`, which is pretty easy.
+These take some time to set up, but are easy to add tracks to and allow for easier viewing of your data. I won't go over how to create them here, but there are a few things to note about them. Most importantly, **your data has to be located in an area accessible outside your network**. This can be tricky if you don't have control over your firewall, and you might have to get IT involved. The genome browser needs to access these files to view the data for *the area that you currently want to view*. So the whole track isn't loaded at once, which really reduces memory and performance needs.
+Secondly, the data files have to be in compressed formats, **so the `narrowPeak` and `bedGraph` formats won't work for this**. We need to convert them to `bigBed` and `bigWig` formats respectively, which is pretty easy.
 
 #### 1.) Convert the `narrowPeak` files to `bigBed` format.
 Easy enough with the handy [`narrowpeak2bb.sh` script](https://github.com/j-andrews7/Pipelines/blob/Master/Code/ChIP_Seq/narrowPeak2bb.sh). You'll need to edit this script to point to the location of wherever you put the `narrowPeak.as` file as well. Then just navigate to your directory containing the `narrowPeak` files, get your genome chromosome sizes, and run the script on the files.
@@ -201,7 +201,7 @@ done
 ```
 
 #### 2.) Convert the `bedGraph` files to `bigWig` format.
-Again, pretty easy. The bedGraph files are already normalized for read depth, so we can just go ahead and straight convert them. Just navigate to the directory containing them and use the `wigToBigWig` utility from `kentUtils`.
+Again, pretty easy. The bedGraph files are already normalized for read depth (`-SRPM` option from MACS2), so we can just go ahead and straight convert them. Just navigate to the directory containing them and use the `wigToBigWig` utility from `kentUtils`. You can also create these tracks directly from the `bam` files using something like [deepTools](https://deeptools.github.io/) if you wanted to try some other normalization methods or subtracting the input reads, etc.
 
 ```Bash
 for f in *.bedGraph; do
