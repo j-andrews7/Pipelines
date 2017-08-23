@@ -11,10 +11,10 @@ source activate py2
 # Idea here is to throw all the samples and the single input file for each of them in a given folder.
 # So that this can be submitted in batches.
 
-treat=/scratch/jandrews/Data/ChIP_Seq/T_Cell/BAMs/Batch14/
+treat=/scratch/jandrews/Data/ChIP_Seq/T_Cell/BAMs/Batch10/
 
 for f in "$treat"*C.sorted.BL_removed.bam; do
     base=${f##*/}
-    macs2 callpeak -t "$f" -c "$treat"*INPUT.sorted.BL_removed.bam -n "$base" --outdir "$treat" -q 0.01 -B --SPMR -m 10 50 &
+    macs2 callpeak -t "$f" -c "$treat"*INPUT.sorted.BL_removed.bam -n "$base" --outdir "$treat" --tempdir /scratch/jandrews/Scratch/MACS2 -q 0.01 -B --SPMR -m 10 50 &
 done
 wait
