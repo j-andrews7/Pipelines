@@ -201,7 +201,7 @@ done
 ```
 
 #### 2.) Convert the `bam` files to `bigWig` format.
-Again, pretty easy. I use [deepTools](https://deeptools.github.io/) to create these files. The `-e` option should be set to your average fragment size (which can be guessed or determined from the output of `ChIPQC`). The `-bs` options sets the bin size, so it can be decreased for increased resolution or increased for smaller files. The `-bl` option allows you to specify a blacklist, though we've already removed these reads in this case. The `-b` option is for your input file, and `-o` is the output file. The `-p` options allows you to set the number of processing cores to be utilized.
+Again, pretty easy. I use [deepTools](https://deeptools.github.io/) to create these files. The `-e` option should be set to your average fragment size (which can be guessed or determined from the output of `ChIPQC`). The `-bs` options sets the bin size, so it can be decreased for increased resolution or increased for smaller files. The `-bl` option allows you to specify a blacklist, though we've already removed these reads in this case. The `-b` option is for your input file, and `-o` is the output file. The `-p` options allows you to set the number of processing cores to be utilized. There are *many* other options also available, but you can figure those out on your own. Can normalize to 1x genome coverage, subtract input reads from your sample tracks, etc.
 
 **Bash script (make_chip_rpkm_tracks.sh):
 ```Bash
