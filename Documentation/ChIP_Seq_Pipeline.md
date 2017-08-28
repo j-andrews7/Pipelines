@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 08/19/2017**  
+**Last updated 08/28/2017**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
