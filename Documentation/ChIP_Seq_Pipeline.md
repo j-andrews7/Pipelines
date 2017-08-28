@@ -17,7 +17,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
   - This should be available on the CHPC cluster.
 - [Python2.7](https://www.python.org/downloads/)
   - Use an [anaconda environment](http://mgt2.chpc.wustl.edu/wiki119/index.php/Python#Anaconda_Python) if on the CHPC cluster (also useful for running various versions of python locally).  
-  - MACS requires Python 2.7.
+  - MACS2 requires Python 2.7.
 - [bedtools](http://bedtools.readthedocs.org/en/latest/)
   - Also available on the CHPC cluster.
 - [MACS2](https://github.com/taoliu/MACS)
@@ -28,11 +28,11 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [kentUtils](https://github.com/ENCODE-DCC/kentUtils)
   - Also on CHPC cluster.
 - [R](https://www.r-project.org/)
-  - Also need the DiffBind and ChIPQC packages installed. I had trouble installing these on the CHPC cluster.
+  - Also need the DiffBind, BiocParallel and ChIPQC packages installed. I had trouble installing these on the CHPC cluster.
 ```
 ## try http:// if https:// URLs are not supported
 source("https://bioconductor.org/biocLite.R")
-biocLite(c("ChIPQC", "DiffBind"))
+biocLite(c("ChIPQC", "DiffBind", "BiocParallel"))
 ```
 
   
@@ -111,7 +111,7 @@ Now we're ready to call peaks with `MACS2`. First, move the `bam` files into bat
 
 The `-B` option will output signal tracks in `bedGraph` format (which we'll convert to `bigWig` format later). The `--SPMR` option will scale this signal to signal per million reads, normalizing for read depth differences between samples. However, these `bedGraph` files look like crap in browsers, so we'll make our own `bigWig` files from the `bam` files a bit later.
 
-> The original `MACS` sometimes had trouble building an appropriate model that would extend reads to better represent the size of the actual DNA fragment and therefore, binding site for your protein. If this extension isn't done, you tend to get a pileup of reads on both sides of the actual peak from the forward and reverse strands, ending up with a dip in the middle. `MACS2` is *supposed* to be better at this, but you can still disable it with `--nomodel` and set the `--extsize` on your own if you want. For the old `MACS`, which used an option called `--shiftsize` instead of `--extsize`, for FAIRE I used `--shiftsize=50`, for H3K4me3 `--shiftsize=100`, and for other histone marks I used `--shiftsize=150`. For TFs, you should try to set it to the size of the typical binding site for that TF. **I don't mess with any of that here, I let `MACS2` build the model for me.**
+> The original `MACS` sometimes had trouble building an appropriate model that would extend reads to better represent the size of the actual DNA fragment and therefore, binding site for your protein. If this extension isn't done, you tend to get a pileup of reads on both sides of the actual peak from the forward and reverse strands, ending up with a dip in the middle. `MACS2` is *supposed* to be better at this, but you can still disable it with `--nomodel` and set the `--extsize` on your own if you want. For the old `MACS`, which used an option called `--shiftsize` instead of `--extsize`, for FAIRE I used `--shiftsize=50`, for H3K4me3 `--shiftsize=100`, and for other histone marks I used `--shiftsize=150`. For TFs, you should try to set it to the size of the typical binding site for that TF. **I don't mess with any of that here, I let `MACS2` build the model for me at least the first time around.**
 
 **Be sure to adjust the effective genome size with `-g` if needed. Change to `mm` for mouse, as human is the default.**
 
@@ -149,18 +149,20 @@ You'll likely want to know how well your ChIP actually worked, right? Looking at
 #### 1.) Set up your experiment sample sheet.
 This sample sheet will tell ChIPQC where to look for files, the different conditions or treatment between samples, which samples are recplicates, etc. An example is below.
 
-| SampleID | Tissue | Factor  | Condition | Treatment  | Replicate | bamReads                                                       | ControlID | bamControl                                                   | Peaks                                                                                               | PeakCaller |
-|----------|--------|---------|-----------|------------|-----------|----------------------------------------------------------------|-----------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|------------|
-| HHu      | HH     | H3AC    | None      | UNTREATED  | 1         | ../BAMs/Batch11/HH.UNTREATED.H3AC.sorted.BL_removed.bam        | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.UNTREATED.H3AC.sorted.BL_REMOVED.peaks.narrowPeak           | bed        |
-| HHr      | HH     | H3AC    | None      | ROMIDEPSIN | 1         | ../BAMs/Batch11/HH.ROMI.H3AC.sorted.BL_removed.bam             | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.ROMI.H3AC.sorted.BL_REMOVED.peaks.narrowPeak                | bed        |
-| HUT78u   | HUT78  | H3AC    | None      | UNTREATED  | 1         | ../BAMs/Batch12/HUT78.UNTREATED.H3AC.sorted.BL_removed.bam     | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.UNTREATED.H3AC.sorted.BL_REMOVED.peaks.narrowPeak        | bed        |
-| HUT78r   | HUT78  | H3AC    | None      | ROMIDEPSIN | 1         | ../BAMs/Batch12/HUT78.ROMI.H3AC.sorted.BL_removed.bam          | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.ROMI.H3AC.sorted.BL_REMOVED.peaks.narrowPeak             | bed        |
-| OCILY7u  | OCILY7 | H3AC    | None      | UNTREATED  | 1         | ../BAMs/Batch14/OCILY7.UNTREATED.H3AC.sorted.BL_removed.bam    | OCILY7c   | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/OCILY7.UNTREATED.H3AC.sorted.BL_REMOVED.peaks.narrowPeak       | bed        |
-| HHu      | HH     | H3K27AC | None      | UNTREATED  | 1         | ../BAMs/Batch11/HH.UNTREATED.H3K27AC.sorted.BL_removed.bam     | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HH.UNTREATED.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak     | bed        |
-| HHr      | HH     | H3K27AC | None      | ROMIDEPSIN | 1         | ../BAMs/Batch11/HH.ROMI.H3K27AC.sorted.BL_removed.bam          | HHc       | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HH.ROMI.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak          | bed        |
-| HUT78u   | HUT78  | H3K27AC | None      | UNTREATED  | 1         | ../BAMs/Batch12/HUT78.UNTREATED.H3K27AC.sorted.BL_removed.bam  | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HUT78.UNTREATED.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak  | bed        |
-| HUT78r   | HUT78  | H3K27AC | None      | ROMIDEPSIN | 1         | ../BAMs/Batch12/HUT78.ROMI.H3K27AC.sorted.BL_removed.bam       | HUT78c    | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam  | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/HUT78.ROMI.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak       | bed        |
-| OCILY7u  | OCILY7 | H3K27AC | None      | UNTREATED  | 1         | ../BAMs/Batch14/OCILY7.UNTREATED.H3K27AC.sorted.BL_removed.bam | OCILY7c   | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam | ../MACS2/BL_REMOVED/NARROW_PEAK/H3K27AC/OCILY7.UNTREATED.H3K27AC.sorted.BL_REMOVED.peaks.narrowPeak | bed        |
+| SampleID        | Tissue | Factor | Condition | Treatment  | Replicate | bamReads                                                         | ControlID       | bamControl                                                       | Peaks                                                                                         | PeakCaller |
+|-----------------|--------|--------|-----------|------------|-----------|------------------------------------------------------------------|-----------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|------------|
+| HH_unt_3        | HH     | H3AC   | None      | UNTREATED  | 1         | ../BAMs/Batch11/HH.UNTREATED.H3AC.sorted.BL_removed.bam          | HHc_unt_inp     | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam         | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak     | narrow     |
+| HH_romi_3       | HH     | H3AC   | None      | ROMIDEPSIN | 1         | ../BAMs/Batch11/HH.ROMI.H3AC.sorted.BL_removed.bam               | HHc_romi_inp    | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam         | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.ROMI.H3AC.sorted.BL_removed.peaks.narrowPeak          | narrow     |
+| HUT78_unt_3     | HUT78  | H3AC   | None      | UNTREATED  | 1         | ../BAMs/Batch12/HUT78.UNTREATED.H3AC.sorted.BL_removed.bam       | HUT78c_unt_inp  | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam      | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak  | narrow     |
+| HUT78_romi_3    | HUT78  | H3AC   | None      | ROMIDEPSIN | 1         | ../BAMs/Batch12/HUT78.ROMI.H3AC.sorted.BL_removed.bam            | HUT78c_romi_inp | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam      | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.ROMI.H3AC.sorted.BL_removed.peaks.narrowPeak       | narrow     |
+| OCILY7_unt_3    | OCILY7 | H3AC   | None      | UNTREATED  | 1         | ../BAMs/Batch14/OCILY7.UNTREATED.H3AC.sorted.BL_removed.bam      | OCILY7c_unt_inp | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/OCILY7.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak | narrow     |
+| HHc_romi_inp    | HH     | Input  | None      | ROMIDEPSIN | c1        | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam         | HHc_romi_inp    | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.bam         | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.ROMI.H3AC.sorted.BL_removed.peaks.narrowPeak          | narrow     |
+| HUT78c_romi_inp | HUT78  | Input  | None      | ROMIDEPSIN | c2        | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam      | HUT78c_romi_inp | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.bam      | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.ROMI.H3AC.sorted.BL_removed.peaks.narrowPeak       | narrow     |
+| OCILY7c_unt_inp | OCILY7 | Input  | None      | UNTREATED  | c3        | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam     | OCILY7c_unt_inp | ../BAMs/Batch14/OCILY7.UNTREATED.INPUT.sorted.BL_removed.bam     | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/OCILY7.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak | narrow     |
+| HHc_unt_inp     | HH     | Input  | None      | UNTREATED  | c4        | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.Copy.bam    | HHc_unt_inp     | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.Copy.bam    | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak     | narrow     |
+| HUT78c_unt_inp  | HUT78  | Input  | None      | UNTREATED  | c5        | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.Copy.bam | HUT78c_unt_inp  | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.Copy.bam | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak  | narrow     |
+
+It won't display your inputs on the same plot as the corresponding sample (contrary to what they show in their vignette) if you don't specifically list them as samples as well. Kind of annoying, as a given `bam` file can only correspond to one peakset, so if two different peaksets have the same input (as is the case here), you *have* to make a copy of the input `bam` file. If you don't care if the inputs are on the same plot as the other samples, feel free to leave them off.
 
 #### 2.) Load your sample sheet into `ChIPQC`.
 Pretty simple. Don't type the `>`, it's just the code prompt.
@@ -172,12 +174,12 @@ Pretty simple. Don't type the `>`, it's just the code prompt.
 ```
 
 #### 3.) Create the ChIPQC Experiment.
-Also really simple. This may take several hours to run. It will display some summary statistics about your experiment and create an interactive `html` summary report for your viewing. It includes a whole host of images and tables with nice captions that explain the various statistics and metrics for each sample.
+Also really simple. This may take several hours to run. It will display some summary statistics about your experiment and create an interactive `html` summary report for your viewing. It includes a whole host of images and tables with nice captions that explain the various statistics and metrics for each sample. You can change the `facetBy` parameter if you want to group your samples on some other metadata like `Condition`.
 
 ```R
 > experiment = ChIPQC(samples)
 > experiment
-> ChIPQCreport(experiment)
+> ChIPQCreport(experiment, facetBy=c("Tissue", "Treatment"))
 ```
 
 #### 4.) Interpret your results.
@@ -210,7 +212,6 @@ Again, pretty easy. I use [deepTools](https://deeptools.github.io/) to create th
 # give the job a name to help keep track of running jobs (optional)
 #PBS -N MAKE_CHIP_RPKM_TRACKS_1
 #PBS -m e
-#PBS -q old
 #PBS -l nodes=1:ppn=8,walltime=24:00:00,vmem=64gb
 
 export PATH=/act/Anaconda3-2.3.0/bin:${PATH}
@@ -218,13 +219,10 @@ source activate anaconda
 
 batch=Batch1/
 
-# For K4ME3, set -e to 200, for FAIRE use 100, for other marks, use 300. This is just double the -shiftsize used for macs
-# and is supposed to be the fragment length.
-
 cd /scratch/jandrews/Data/ChIP_Seq/T_Cell/BAMs/"$batch"
 
 for f in *.BL_removed.bam; do
-	bamCoverage  -e 300 -p 8 -of bigwig -bs 10 --normalizeUsingRPKM  -bl /scratch/jandrews/Ref/ENCODE_Blacklist_hg19.bed -b "$f" -o "$f".bw ;
+	bamCoverage  -e 200 -p 8 -of bigwig -bs 10 --normalizeUsingRPKM  -bl /scratch/jandrews/Ref/ENCODE_Blacklist_hg19.bed -b "$f" -o "$f".bw ;
 done
 wait
 
