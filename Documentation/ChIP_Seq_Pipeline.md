@@ -42,6 +42,7 @@ biocLite(c("ChIPQC", "DiffBind", "BiocParallel"))
 - [Peak Calling](#peak-calling)
 - [QC with ChIPQC](#quality-control)
 - [Making Genome Browser Tracks](#making-tracks)
+- [Differential Binding Analyses](Differential Binding Analyses)
 
 
 ---
@@ -231,5 +232,25 @@ rename .bam.bw .RPKM.bw *.bw
 
 Now you just stick both these sets of files somewhere UCSC or another genome browser can access them and create your track hub.
 
+---
+
+## Differential Binding Analyses
+Calling peaks is great, but presence/absence of peaks isn't the best metric to compare across samples. You'd likely rather compare normalized signal across samples for a consensus peak set. Depending on your experimental design, there are multiple ways/tools to do this. 
+
+### With MAnorm
+The most straight forward is by comparing two samples, say a treated and untreated sample, and comparing their signal for a peak set that merges all the peaks of those samples. You can then determine which peaks have significantly different signal between the two samples. The [MAnorm R/bash code](http://bcb.dfci.harvard.edu/~gcyuan/MAnorm/MAnorm.htm) can do this for you easily enough. 
+
+>I actually had to modify this code to get it running, as it hasn't been updated in some time. The `bedTools` arguments were out of date for a few commands (mostly just input file arguments were swapped for `coverageBed`). It also had a really high memory footprint for large files, which was taken care of by adding a few extra sorting steps. This code can be found [here](https://github.com/j-andrews7/MAnorm_updated).
+
+#### 1.) Run MAnorm.
+```Bash
+./MAnorm.sh  sample1_peaks.bed  sample2_peaks.bed  sample1_read.bed  sample2_read.bed  150  150
+```
+
+The first 4 parameters should be input files in `bed` format with no header lines. The first 2 files have **ONLY 3 columns**: chromosome, start, end. The next 2 files should have 4 columns: chromosome, start, end, strand (+/-). Use `bamtobed` from `bedTools` to convert the `BAM` files to `bed` files. Use `cut` to generate the correct file format from the `narrowPeak` and `bed` files for peaks and reads, respectively. 
+The last 2 parameters are the number of bp to be shifted for each read. These two parameters are found from the MACS `xls` peak files after "# d =".
+MAnorm.r is called from MAnorm.sh, and there is no need to run it separately.  Check the file `Rcommand.out` for the output file from running the R script for error tracking.
+
+This will create two tables - one with only the common merged peaks, and one with the common and unique peaks. I use the table with all of them and filter by the `-LOG10(pvalue)` column (>5, equivalent to p-value of 0.00001) and the `M-value` column. The M-value essentially refers to the magnitude of the change between the two samples for a given peak. I use M-values of 1 and -1 in conjunction with the p-value filter to identify the peaks enriched in my two different conditions. You can just do this in Excel, or use the `classfy_by_peaks.sh` script from MAnorm. 
 
 
