@@ -42,7 +42,7 @@ biocLite(c("ChIPQC", "DiffBind", "BiocParallel"))
 - [Peak Calling](#peak-calling)
 - [QC with ChIPQC](#quality-control)
 - [Making Genome Browser Tracks](#making-tracks)
-- [Differential Binding Analyses](Differential Binding Analyses)
+- [Differential Binding Analyses](#differential-binding-analyses)
 
 
 ---
