@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 09/04/2017**  
+**Last updated 09/12/2017**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
@@ -251,6 +251,14 @@ The first 4 parameters should be input files in `bed` format with no header line
 The last 2 parameters are the number of bp to be shifted for each read. These two parameters are found from the MACS `xls` peak files after "# d =".
 MAnorm.r is called from MAnorm.sh, and there is no need to run it separately.  Check the file `Rcommand.out` for the output file from running the R script for error tracking.
 
-This will create two tables - one with only the common merged peaks, and one with the common and unique peaks. I use the table with all of them and filter by the `-LOG10(pvalue)` column (>5, equivalent to p-value of 0.00001) and the `M-value` column. The M-value essentially refers to the magnitude of the change between the two samples for a given peak. I use M-values of 1 and -1 in conjunction with the p-value filter to identify the peaks enriched in my two different conditions. You can just do this in Excel, or use the `classfy_by_peaks.sh` script from MAnorm. 
+This will create two tables - one with only the common merged peaks, and one with the common and unique peaks. I use the table with all of them and filter by the `-LOG10(pvalue)` column (>5, equivalent to p-value of 0.00001) and the `M-value` column. The M-value essentially refers to the magnitude of the change between the two samples for a given peak. **I use M-values of 1 and -1 in conjunction with the p-value filter to identify the peaks enriched in my two different conditions**. You can just do this in Excel, or use the `classfy_by_peaks.sh` script from MAnorm. 
 
+#### 2.) Plot results and compare signal at differential peaks.
+Now you've got a bunch of lists, but you probably want to compare those lists for different conditions and visualize those differences.
 
+You've really got options at this point. You can use [plot.ly](https://plot.ly/) with R/Python/Javascript/MatLab/a web editor to create some really pretty, *interactive* graphs and plots. Another new program I'm very fond of is [EaSeq](easeq.net), which makes generating genome-wide occupancy maps and manipulating your data in fairly complex ways a breeze. It can also help you annotate your peaks by nearest gene, etc. It is, unfortunately, a **Windows only program** though.
+
+#### 3.) Pathway and motif enrichment analyses.
+You may also be interested in if the genes your differential peaks are near happen to be similar in any way. This is where pathway enrichment analyses come in handy. [GREAT](http://bejerano.stanford.edu/great/public/html/index.php) is my personal favorite tool for this, as all it requires is a list of genomic regions and will perform all the gene ontology (GO) analyses you'll ever need. It hits a lot of databases.
+
+[AME](http://meme-suite.org/tools/ame) is what I typically use for motif enrichment analyses, which are useful if you want some idea of what transcription factors may be enacting the changes in binding you've found. It's part of the enormous MEME suite, which also has a ton of other tools if you're doing TF ChIP or trying to determine the binding motif for a transcription factor/protein that doesn't have a known one.
