@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 09/12/2017**  
+**Last updated 09/17/2017**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
@@ -28,6 +28,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [kentUtils](https://github.com/ENCODE-DCC/kentUtils)
   - Also on CHPC cluster.
 - [R](https://www.r-project.org/)
+  - Version 3.3.3 is probably what you'll want - I've had issues with some of the below packages with R 3.4+
   - Also need the DiffBind, BiocParallel and ChIPQC packages installed. I had trouble installing these on the CHPC cluster.
 ```
 ## try http:// if https:// URLs are not supported
@@ -163,7 +164,7 @@ This sample sheet will tell ChIPQC where to look for files, the different condit
 | HHc_unt_inp     | HH     | Input  | None      | UNTREATED  | c4        | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.Copy.bam    | HHc_unt_inp     | ../BAMs/Batch11/HH.UNTREATED.INPUT.sorted.BL_removed.Copy.bam    | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HH.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak     | narrow     |
 | HUT78c_unt_inp  | HUT78  | Input  | None      | UNTREATED  | c5        | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.Copy.bam | HUT78c_unt_inp  | ../BAMs/Batch12/HUT78.UNTREATED.INPUT.sorted.BL_removed.Copy.bam | ../MACS2/BL_REMOVED/NARROW_PEAK/H3AC/HUT78.UNTREATED.H3AC.sorted.BL_removed.peaks.narrowPeak  | narrow     |
 
-It won't display your inputs on the same plot as the corresponding sample (contrary to what they show in their vignette) if you don't specifically list them as samples as well. Kind of annoying, as a given `bam` file can only correspond to one peakset, so if two different peaksets have the same input (as is the case here), you *have* to make a copy of the input `bam` file. If you don't care if the inputs are on the same plot as the other samples, feel free to leave them off.
+It won't display your inputs on the same plot as the corresponding sample (contrary to what they show in their vignette) if you don't specifically list them as samples as well. Kind of annoying, as a given `bam` file can only correspond to one peakset, so if two different peaksets have the same input (as is the case here), you *have* to make a copy of the input `bam` file. If you don't care if the inputs are on the same plot as the other samples, feel free to leave them off. If you get an error like `'names' attribute must be the same length as the vector` make all of your input IDs unique and it should clear things up.
 
 #### 2.) Load your sample sheet into `ChIPQC`.
 Pretty simple. Don't type the `>`, it's just the code prompt.
