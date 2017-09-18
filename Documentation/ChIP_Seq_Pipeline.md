@@ -167,7 +167,7 @@ This sample sheet will tell ChIPQC where to look for files, the different condit
 It won't display your inputs on the same plot as the corresponding sample (contrary to what they show in their vignette) if you don't specifically list them as samples as well. Kind of annoying, as a given `bam` file can only correspond to one peakset, so if two different peaksets have the same input (as is the case here), you *have* to make a copy of the input `bam` file. If you don't care if the inputs are on the same plot as the other samples, feel free to leave them off. If you get an error like `'names' attribute must be the same length as the vector` make all of your input IDs unique and it should clear things up.
 
 #### 2.) Load your sample sheet into `ChIPQC`.
-Pretty simple. Don't type the `>`, it's just the code prompt.
+Pretty simple. Don't type the `>`, it's just the code prompt. If you get the error stated above despite having all unique names, make sure `biocParallel` is loaded and enter `register(SerialParam())`. That will usually fix the error.
 
 ```R
 > library(ChIPQC)
