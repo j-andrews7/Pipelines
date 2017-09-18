@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 09/17/2017**  
+**Last updated 09/18/2017**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
@@ -263,3 +263,8 @@ You've really got options at this point. You can use [plot.ly](https://plot.ly/)
 You may also be interested in if the genes your differential peaks are near happen to be similar in any way. This is where pathway enrichment analyses come in handy. [GREAT](http://bejerano.stanford.edu/great/public/html/index.php) is my personal favorite tool for this, as all it requires is a list of genomic regions and will perform all the gene ontology (GO) analyses you'll ever need. It hits a lot of databases.
 
 [AME](http://meme-suite.org/tools/ame) is what I typically use for motif enrichment analyses, which are useful if you want some idea of what transcription factors may be enacting the changes in binding you've found. It's part of the enormous MEME suite, which also has a ton of other tools if you're doing TF ChIP or trying to determine the binding motif for a transcription factor/protein that doesn't have a known one.
+
+### With DiffBind
+`DiffBind` is a nifty R package written by the same group that did `ChIPQC` - it even uses the same sample sheet. Remove any poor quality samples before this step and be sure to add any metadata you may need to the sample sheet (Treatment, Conditions, etc).
+
+
