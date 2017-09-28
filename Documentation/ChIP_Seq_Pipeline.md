@@ -267,4 +267,6 @@ You may also be interested in if the genes your differential peaks are near happ
 ### With DiffBind
 `DiffBind` is a nifty R package written by the same group that did `ChIPQC` - it even uses the same sample sheet. Remove any poor quality samples before this step and be sure to add any metadata you may need to the sample sheet (Treatment, Conditions, etc).
 
+The full package vignette can be [found here](https://www.bioconductor.org/packages/devel/bioc/vignettes/DiffBind/inst/doc/DiffBind.pdf) or you can open it within RStudio. It lists more options and such than I'll go over here. Actually, it's super straight-forward, just go there and figure it out. It basically involves reading in your samples, getting read counts, setting the contrasts, and running the analysis followed by visualization. Really pretty straightforward.
 
+Afterwards, the same tools listed above for use after `MAnorm` analysis are still useful.
