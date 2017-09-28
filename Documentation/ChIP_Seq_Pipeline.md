@@ -28,7 +28,7 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [kentUtils](https://github.com/ENCODE-DCC/kentUtils)
   - Also on CHPC cluster.
 - [R](https://www.r-project.org/)
-  - Version 3.3.3 is probably what you'll want - I've had issues with some of the below packages with R 3.4+
+  - Version 3.3.x is probably what you'll want - I've had issues with some of the below packages with R 3.4+
   - Also need the DiffBind, BiocParallel and ChIPQC packages installed. I had trouble installing these on the CHPC cluster.
 ```
 ## try http:// if https:// URLs are not supported
@@ -113,7 +113,7 @@ Now we're ready to call peaks with `MACS2`. First, move the `bam` files into bat
 
 The `-B` option will output signal tracks in `bedGraph` format (which we'll convert to `bigWig` format later). The `--SPMR` option will scale this signal to signal per million reads, normalizing for read depth differences between samples. However, these `bedGraph` files look like crap in browsers, so we'll make our own `bigWig` files from the `bam` files a bit later.
 
-> The original `MACS` sometimes had trouble building an appropriate model that would extend reads to better represent the size of the actual DNA fragment and therefore, binding site for your protein. If this extension isn't done, you tend to get a pileup of reads on both sides of the actual peak from the forward and reverse strands, ending up with a dip in the middle. `MACS2` is *supposed* to be better at this, but you can still disable it with `--nomodel` and set the `--extsize` on your own if you want. For the old `MACS`, which used an option called `--shiftsize` instead of `--extsize`, for FAIRE I used `--shiftsize=50`, for H3K4me3 `--shiftsize=100`, and for other histone marks I used `--shiftsize=150`. For TFs, you should try to set it to the size of the typical binding site for that TF. **I don't mess with any of that here, I let `MACS2` build the model for me at least the first time around.**
+> The original `MACS` sometimes had trouble building an appropriate model that would extend reads to better represent the size of the actual DNA fragment and therefore, binding site for your protein. If this extension isn't done, you tend to get a pileup of reads on both sides of the actual peak from the forward and reverse strands, ending up with a dip in the middle. `MACS2` is *supposed* to be better at this, but you can still disable it with `--nomodel` and set the `--extsize` on your own if you want. For the old `MACS`, which used an option called `--shiftsize` instead of `--extsize`, for FAIRE I used `--shiftsize=50`, for H3K4me3 `--shiftsize=100`, and for other histone marks I used `--shiftsize=150`. For ATAC, I think most people use `--shiftsize=0`. For TFs, you should try to set it to the size of the typical binding site for that TF. **I don't mess with any of that here, I let `MACS2` build the model for me at least the first time around.**
 
 **Be sure to adjust the effective genome size with `-g` if needed. Change to `mm` for mouse, as human is the default.**
 
