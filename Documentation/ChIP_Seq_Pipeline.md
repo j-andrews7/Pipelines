@@ -1,10 +1,10 @@
 # ChIP-SEQ Pipeline
-**Last updated 09/28/2017**  
+**Last updated 10/23/2017**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
 
-This was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
+Much of this was done on the CHPC cluster, so all of the `export`, `source`, and `module load/remove` statements are to load the various software necessary to run the command(s) that follow. If you're running this locally and the various tools needed are located on your `PATH`, you can ignore these. They're more so I can just copy and paste when running through this myself.
 
 > Bash scripts are submitted on the cluster with the `qsub` command. Check the [CHPC wiki](http://mgt2.chpc.wustl.edu/wiki119/index.php/Main_Page) for more info on cluster commands and what software is available. 
 
@@ -42,7 +42,7 @@ biocLite(c("ChIPQC", "DiffBind", "BiocParallel"))
 - [Alignment](#alignment)
 - [Peak Calling](#peak-calling)
 - [QC with ChIPQC](#quality-control)
-- [Making Genome Browser Tracks](#making-tracks)
+- [Making Normalized Genome Browser Tracks](#making-tracks)
 - [Differential Binding Analyses](#differential-binding-analyses)
 
 
