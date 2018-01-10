@@ -1,5 +1,5 @@
 # ChIP-SEQ Pipeline
-**Last updated 10/23/2017**  
+**Last updated 01/08/2018**  
 Author: jared.andrews07@gmail.com  
 
 This document describes the bioinformatics pipeline used to analyze the Payton Lab's histone ChIP-seq data. This pipeline is pretty linear, but additional file manipulations may be necessary (removal of headers, switching columns around, etc), though considerable effort has been made to minimize this as much as possible. **This is not the end-all, be-all, but it should be a good place to start.**  This pipeline was originally created/maintained **by 4 different people over several years**, but recent advances in the field and development of new tools have allowed many of the homebrewed scripts to be removed. It's mostly composed of well-touted, commonly used tools and packages now.
@@ -30,6 +30,8 @@ An _actual_ workflow (Luigi, Snakemake, etc) could easily be made for this with 
 - [R](https://www.r-project.org/)
   - Version 3.3.x is probably what you'll want - I've had issues with some of the below packages with R 3.4+
   - Also need the DiffBind, BiocParallel and ChIPQC packages installed. I had trouble installing these on the CHPC cluster.
+- [ROSE](http://younglab.wi.mit.edu/super_enhancer_code.html)
+
 ```
 ## try http:// if https:// URLs are not supported
 source("https://bioconductor.org/biocLite.R")
@@ -42,6 +44,7 @@ biocLite(c("ChIPQC", "DiffBind", "BiocParallel"))
 - [Alignment](#alignment)
 - [Peak Calling](#peak-calling)
 - [QC with ChIPQC](#quality-control)
+- [Super Enhancer Calling](#se-calling)
 - [Making Normalized Genome Browser Tracks](#making-tracks)
 - [Differential Binding Analyses](#differential-binding-analyses)
 
@@ -185,7 +188,26 @@ Also really simple. This may take several hours to run. It will display some sum
 ```
 
 #### 4.) Interpret your results.
-Read the report, learn the metrics, and determine if your samples are of good quality. I pay particular attention to `RiP%` (Reads in Peaks) metric, which is a good measure of enrichment. If any need to be resubmitted for sequencing, now's the time. Save this so you can include some QC figures in the supplement of your fascinating future paper.
+Read the report, learn the metrics, and determine if your samples are of good quality. I pay particular attention to `RiP%` (Reads in Peaks) metric, which is a good measure of enrichment, and SSD, which is basically the signal standard deviation. Higher is better, as it shows you have a proper range in signal across the genome. For TF, the package's authors say that you should probably be getting at least 5% of reads in peaks. No guidelines for ChIP, but I typically want my ChIP samples to have **roughly ~2x the RiP% of the inputs**. So if you're input has 5%, I'd want the ChIP samples to have 10%. I also typically want my ChIP samples to have at least an SSD score of at *least 0.7*, though >1 is preferable. I usually remove blacklisted reads before doing this, but leaving them in and removing them afterwards would tell you what percentage of your reads lie in those regions as well.
+
+If any need to be resubmitted for sequencing, now's the time. Save this so you can include some QC figures in the supplement of your fascinating future paper.
+
+---
+
+## SE Calling
+Super enhancers are rather hot lately, and while controversial, they *do* tend to demarcate some of the more variable regulatory regions. ROSE is the code used in the original paper, and it still works well enough for now. You have to use python2 with it, so just be aware of that. This set has one input per folder with two or more actual H3K27ac files in the same folder. If your sample doesn't have any H3K27ac peaks, an error will be thrown.
+
+```Bash
+base=/mnt/e/ChIP_Seq/CTCL
+for f in "$base"/BAMs/Batch3/*K27AC.sorted.BL_removed.bam; do 
+	samp=${f##*/}; 
+	samp=${samp%.*}; 
+	echo "processing $samp"; 
+	python ROSE_main.py -g hg19 -r "$f" -t 2500 -c "$base"/BAMs/Batch3/*INPUT.sorted.BL_removed.bam -o ../RESULTS/"$samp" -i "$base"/ROSE/PEAKS_GFF/"$samp".peaks.gff; 
+done
+```
+
+This will pop out SEs for each sample that we can use in DiffBind to identify those that really stratify the samples. These differences are often seen near important cancer and developmental genes, and can be really useful for identifying regulatory regions that are heavily altered between your groups. I recommend trying to utilize them.
 
 ---
 
@@ -267,6 +289,17 @@ You may also be interested in if the genes your differential peaks are near happ
 ### With DiffBind
 `DiffBind` is a nifty R package written by the same group that did `ChIPQC` - it even uses the same sample sheet. Remove any poor quality samples before this step and be sure to add any metadata you may need to the sample sheet (Treatment, Conditions, etc).
 
-The full package vignette can be [found here](https://www.bioconductor.org/packages/devel/bioc/vignettes/DiffBind/inst/doc/DiffBind.pdf) or you can open it within RStudio. It lists more options and such than I'll go over here. Actually, it's super straight-forward, just go there and figure it out. It basically involves reading in your samples, getting read counts, setting the contrasts, and running the analysis followed by visualization. Really pretty straightforward.
+The full package vignette can be [found here](https://www.bioconductor.org/packages/devel/bioc/vignettes/DiffBind/inst/doc/DiffBind.pdf) or you can open it within RStudio. It lists more options and such than I'll go over here. It basically involves reading in your samples, getting read counts, setting the contrasts, and running the analysis followed by visualization. Really pretty straightforward.
 
 Afterwards, the same tools listed above for use after `MAnorm` analysis are still useful.
+
+```R
+library("DiffBind")
+samp = dba(sampleSheet = "Primary_SampleSheet_H3AC_Peaks.Final.DecentQuality.csv")
+cont = dba.contrast(count, categories=DBA_CONDITION, block=DBA_TREATMENT)
+results=dba.analyze(cont)
+
+# Get and save the consensus peaks.
+consensus_h3 = dba.report(results, th=1)
+
+```
